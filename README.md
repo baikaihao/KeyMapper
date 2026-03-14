@@ -1,4 +1,4 @@
-# KeyMapper for macOS
+# KeyMapper for macOS 【中文描述在下面】
 an easy small MacOS app for Windows users who prefer to use ctrl+c instead of command+c
 all supported by Gemini
 including README 😆
@@ -8,7 +8,11 @@ including README 😆
 
 ## English Version
 
-A lightweight global key mapping utility for macOS, built with SwiftUI.
+Hi there! I built this little tool just three days after getting my first MacBook. After a decade of "Ctrl+C" muscle memory, I honestly couldn't handle the finger gymnastics required for "Command+C"—it was pure torture! I’m not sure if someone else has built a similar tool, but given how powerful AI is nowadays, I decided to just "vibe-code" it into existence. (Shoutout to Gemini and Qwen for helping me grind this out in 12 hours! 🚀)
+
+Now, you might ask: "Doesn't macOS let you swap Command and Control natively?"
+Sure it does. But if you swap them globally, every other shortcut gets messed up. The vision for this app is simple: map Windows-style "Ctrl+C/V" to "Cmd+C/V" without breaking your existing Command-key shortcuts.
+
 
 ### ✨ Features
 
@@ -37,6 +41,15 @@ A lightweight global key mapping utility for macOS, built with SwiftUI.
 ---
 
 ## 中文版
+
+嗨！这个小软件是我拿到MacBook后的第三天有这个想法去做的，主要是我摁了十几年的ctrl+c，实在是搞不来那个手型去摁command+c，太折磨了。俺也不知道有没有别的大神做过类似的软件了，想着现在ai这么厉害直接vibe coding一个出来算了【12小时靠Gemini和千问给我vibe出来了齁哦哦哦哦哦哦哦哦哦】
+
+这个时候就有人问了：macOS不是自带command改成control功能吗？
+确实，但是改了的话那其他需要command的快捷键不是也变了吗。所以这个软件的初衷就是，既可以实现Windows的ctrl+C转为command+c的映射，又不会影响其他需要command的快捷键的使用
+
+下面的就是gemini老师生成的readme了
+
+---
 
 一个基于 SwiftUI 开发的轻量级 macOS 全局按键映射工具。
 
