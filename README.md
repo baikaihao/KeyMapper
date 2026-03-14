@@ -43,8 +43,8 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 
 ---
 
-<div>
-<img src="https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg?raw=true" height="250px">
+<div align = "center">
+<img src="https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg?raw=true" height="350px">
 </div>
 
 
