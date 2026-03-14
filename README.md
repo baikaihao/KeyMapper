@@ -3,9 +3,9 @@ an easy small MacOS app for Windows users who prefer to use ctrl+c instead of co
 all supported by Gemini
 including README 😆
 
-<div>
+<p align = center>
 <img src="https://github.com/baikaihao/KeyMapper/blob/main/app图标.png?raw=true" width="100" height="100">
-</div>
+</p>
 
 ---
 
@@ -44,7 +44,7 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 ---
 
 <div>
-<img src="https://github.com/baikaihao/KeyMapper/blob/main/app图标.png?raw=true" height="250px">
+<img src="https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg?raw=true" height="250px">
 </div>
 
 
