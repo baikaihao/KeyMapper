@@ -3,7 +3,7 @@ an easy small MacOS app for Windows users who prefer to use ctrl+c instead of co
 all supported by Gemini
 including README 😆
 
-![image][https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg]
+![image](https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg)
 
 ---
 
