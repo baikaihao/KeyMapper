@@ -1,9 +1,7 @@
-# KeyMapper
-a easy small MacOS app for Windows users who prefer to use ctrl+c instead of command+c
+# KeyMapper for macOS
+an easy small MacOS app for Windows users who prefer to use ctrl+c instead of command+c
 all supported by Gemini
 including README 😆
-
-# KeyMapper for macOS
 ---
 
 ## English Version
