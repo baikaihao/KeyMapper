@@ -3,7 +3,7 @@ an easy small MacOS app for Windows users who prefer to use ctrl+c instead of co
 all supported by Gemini
 including README 😆
 
-![image](https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg)
+![image](https://github.com/baikaihao/KeyMapper/blob/main/app图标.png)
 
 ---
 
@@ -40,6 +40,7 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 * **Storage**: User configurations are serialized via `JSONEncoder` and persisted in `UserDefaults`.
 
 ---
+![image](https://github.com/baikaihao/KeyMapper/blob/main/screenshot.png)
 
 ## 中文版
 
