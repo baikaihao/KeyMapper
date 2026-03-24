@@ -1,0 +1,26 @@
+/* Status Bar */
+"engine.running" = "Engine Running";
+"engine.waiting" = "Waiting for Authorization...";
+"enable.accessibility" = "Enable";
+
+/* Main View */
+"new.mapping" = "New Mapping";
+"press.original.key" = "Press Original Key: ";
+"map.to" = "Map To: ";
+"save.rule" = "Save Rule";
+"saved.rules" = "Saved Rules";
+
+/* Settings */
+"settings" = "Settings";
+"launch.at.login" = "Launch at Login";
+"launch.at.login.desc" = "Automatically run this app at login";
+"hide.dock.icon" = "Hide Dock Icon";
+"hide.dock.icon.desc" = "App will run in background";
+
+/* Record Row */
+"waiting.for.input" = "Waiting for input...";
+"click.to.record" = "Click to record";
+
+/* Menu Bar */
+"show.window" = "Show Window";
+"quit.app" = "Quit KeyMapper";
