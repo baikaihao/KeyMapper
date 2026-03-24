@@ -1,0 +1,26 @@
+/* Status Bar */
+"engine.running" = "引擎运行中";
+"engine.waiting" = "等待授权...";
+"enable.accessibility" = "去开启";
+
+/* Main View */
+"new.mapping" = "新建映射";
+"press.original.key" = "按下原键: ";
+"map.to" = "映射为: ";
+"save.rule" = "保存规则";
+"saved.rules" = "已保存规则";
+
+/* Settings */
+"settings" = "设置";
+"launch.at.login" = "开机自动启动";
+"launch.at.login.desc" = "登录时自动运行此应用";
+"hide.dock.icon" = "隐藏程序坞图标";
+"hide.dock.icon.desc" = "应用将在后台运行";
+
+/* Record Row */
+"waiting.for.input" = "等待输入...";
+"click.to.record" = "点击录制";
+
+/* Menu Bar */
+"show.window" = "显示窗口";
+"quit.app" = "退出 KeyMapper";
