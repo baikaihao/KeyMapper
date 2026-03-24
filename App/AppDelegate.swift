@@ -57,28 +57,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: - 图标加载
     
-    private static let iconSize: CGFloat = 16
+    private static let iconSize: CGFloat = 25
     
     private static func loadStatusBarIcon() -> NSImage {
-        // 尝试从 Asset Catalog 加载
         if let image = NSImage(named: "StatusBarIcon") {
             image.size = NSSize(width: iconSize, height: iconSize)
             image.isTemplate = true
             return image
-        }
-        
-        // 尝试从 Bundle 加载并缩放到菜单栏尺寸
-        if let imageURL = Bundle.main.url(forResource: "状态栏", withExtension: "png"),
-           let original = NSImage(contentsOf: imageURL) {
-            let resized = NSImage(size: NSSize(width: iconSize, height: iconSize))
-            resized.lockFocus()
-            original.draw(in: NSRect(x: 0, y: 0, width: iconSize, height: iconSize),
-                          from: NSRect(origin: .zero, size: original.size),
-                          operation: .copy,
-                          fraction: 1.0)
-            resized.unlockFocus()
-            resized.isTemplate = true
-            return resized
         }
         
         return createDefaultIcon()

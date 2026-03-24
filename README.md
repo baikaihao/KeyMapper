@@ -1,7 +1,6 @@
 # KeyMapper for macOS 【中文描述在下面】
 an easy small MacOS app for Windows users who prefer to use ctrl+c instead of command+c
-all supported by Gemini
-including README 😆
+
 
 <p align = center>
 <img src="https://github.com/baikaihao/KeyMapper/blob/main/app图标.png?raw=true" width="100" height="100">
@@ -44,7 +43,7 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 ---
 
 <div align = "center">
-<img src="https://github.com/baikaihao/KeyMapper/blob/main/screenshot.jpg?raw=true" height="350px">
+<img src="other/screenshot.jpg?raw=true" height="350px">
 </div>
 
 
