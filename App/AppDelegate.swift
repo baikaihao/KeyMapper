@@ -57,7 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: - 图标加载
     
-    private static let iconSize: CGFloat = 25
+    private static let iconSize: CGFloat = 22
     
     private static func loadStatusBarIcon() -> NSImage {
         if let image = NSImage(named: "StatusBarIcon") {
