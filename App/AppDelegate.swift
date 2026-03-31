@@ -38,15 +38,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 窗口操作
     
     @objc func toggleWindow() {
+        // 保存当前激活策略
+        let currentPolicy = NSApplication.shared.activationPolicy()
+        
+        // 临时设置为 regular 策略以确保窗口可以显示
+        if currentPolicy != .regular {
+            NSApplication.shared.setActivationPolicy(.regular)
+        }
+        
         if let window = NSApplication.shared.windows.first {
             if window.isVisible && !window.isMiniaturized && window.isKeyWindow {
                 window.miniaturize(nil)
+                // 如果原来的策略不是 regular，恢复它
+                if currentPolicy != .regular {
+                    NSApplication.shared.setActivationPolicy(currentPolicy)
+                }
             } else {
                 if window.isMiniaturized {
                     window.deminiaturize(nil)
                 }
                 window.makeKeyAndOrderFront(nil)
                 NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+        } else {
+            // 如果没有窗口，尝试激活应用程序，这会触发 WindowGroup 创建窗口
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            // 延迟一下确保窗口被创建
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if let window = NSApplication.shared.windows.first {
+                    window.makeKeyAndOrderFront(nil)
+                }
             }
         }
     }

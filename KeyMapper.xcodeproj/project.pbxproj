@@ -68,9 +68,7 @@
 			isa = PBXGroup;
 			children = (
 				FBA679172F781F1F00E6F969 /* App */,
-				FBA679182F781F1F00E6F969 /* app图标.png */,
 				FBA679192F781F1F00E6F969 /* Assets.xcassets */,
-				FBA6791A2F781F1F00E6F969 /* BarIcon.svg */,
 				FBA6791B2F781F1F00E6F969 /* ContentView.swift */,
 				FBA679202F781F1F00E6F969 /* en.lproj */,
 				FBA679222F781F1F00E6F969 /* Engine */,
@@ -131,6 +129,8 @@
 			children = (
 				FBA679302F781F2900E6F969 /* LICENSE */,
 				FBA679312F781F2900E6F969 /* screenshot.jpg */,
+				FBA679182F781F1F00E6F969 /* app图标.png */,
+				FBA6791A2F781F1F00E6F969 /* BarIcon.svg */,
 			);
 			path = other;
 			sourceTree = "<group>";
