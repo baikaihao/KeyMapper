@@ -20,14 +20,14 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 
 * **Global Interception**: Uses low-level `CGEventTap` for system-wide key remapping.
 * **Visual Recording**: No need to look up keycodes. Simply click "Record" and press your desired key.
-* **Modifier Support**: Full support for `⌘ (Command)`, `⌥ (Option)`, `⇧ (Shift)`, and `⌃ (Control)`.
+* **Modifier Support**: Full support for `⌘ (Command)`, `⌥ (Option)`, `⇧ (Shift)`, and `⌃ (Control)`.(Except for system-level combination keys, for example, some combination keys such as Command+Shift+4 for screenshots cannot be entered.)
 * **Stealth Mode**: Options to hide the Dock icon and enable "Launch at Login" for a seamless experience.
 * **Privacy First**: 100% open-source, no analytics, no network access.
 
 ### 🚀 Getting Started
 
 1. **Download**: Grab the latest `.zip` from the [Releases] page.
-2. **Install**: Unzip and move `KeyMapper.app` to your `Applications` folder.
+2. **Install**: Move `KeyMapper.app` to your `Applications` folder.
 3. **Permissions (Required)**:
 * Go to **System Settings > Privacy & Security > Accessibility**.
 * Toggle **KeyMapper** to **ON**. This is required for the engine to intercept keystrokes.
@@ -64,14 +64,14 @@ Sure it does. But if you swap them globally, every other shortcut gets messed up
 
 * **全局拦截**：利用底层 `CGEventTap` 技术，实现系统级按键重映射。
 * **可视化录制**：无需记忆键位码，点击录制按钮后直接敲击键盘即可自动识别。
-* **组合键支持**：完美支持 `⌘ (Command)`, `⌥ (Option)`, `⇧ (Shift)`, `⌃ (Control)` 的任意组合。
+* **组合键支持**：完美支持 `⌘ (Command)`, `⌥ (Option)`, `⇧ (Shift)`, `⌃ (Control)` 的任意组合 (系统层级的组合键除外, 如Command+Shift+4进行截图等部分组合键无法录入)。
 * **静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求。
 * **完全开源**：不包含任何统计或网络模块，纯净安全，保护输入隐私。
 
 ### 🚀 快速开始
 
 1. **下载**：在 [Releases] 页面下载最新版的 `.zip` 压缩包。
-2. **安装**：解压并拖入 `Applications` (应用程序) 文件夹。
+2. **安装**：拖入至 `Applications` (应用程序) 文件夹。
 3. **授权 (必须)**：
 * 打开 **系统设置 > 隐私与安全性 > 辅助功能**。
 * 在列表中找到 `KeyMapper` 并打开开关。如果不打开，引擎将无法捕获及修改按键信号。
