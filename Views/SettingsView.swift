@@ -94,5 +94,11 @@ struct SettingsView: View {
     private func toggleDockIcon(hide: Bool) {
         let policy: NSApplication.ActivationPolicy = hide ? .accessory : .regular
         NSApplication.shared.setActivationPolicy(policy)
+        
+        // 确保窗口保持在最前面
+        if let window = NSApplication.shared.windows.first {
+            window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
     }
 }
