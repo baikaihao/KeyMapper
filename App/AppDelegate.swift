@@ -1,77 +1,127 @@
 import AppKit
+import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     static let instance = AppDelegate()
-    
-    /// 强引用，防止 ARC 释放导致图标消失
+
     private var statusItem: NSStatusItem?
-    
+    private var mainWindow: NSWindow?
+    private var engineMenuItem: NSMenuItem?
+
     // MARK: - 菜单栏图标
-    
+
     func setupMenuBarIcon() {
         guard statusItem == nil else { return }
-        
+
         let item = NSStatusBar.system.statusItem(withLength: 14)
         if let button = item.button {
             let icon = Self.loadStatusBarIcon()
             button.image = icon
             button.imagePosition = .imageOnly
         }
-        
+
         let menu = NSMenu()
-        
+        menu.delegate = self
+
         let showItem = NSMenuItem(title: NSLocalizedString("show.window", comment: ""), action: #selector(Self.toggleWindow), keyEquivalent: "")
         showItem.target = self
         menu.addItem(showItem)
-        
+
         menu.addItem(NSMenuItem.separator())
-        
+
+        let engineItem = NSMenuItem(title: NSLocalizedString("pause.engine", comment: ""), action: #selector(Self.toggleEngine), keyEquivalent: "")
+        engineItem.target = self
+        menu.addItem(engineItem)
+        engineMenuItem = engineItem
+
+        menu.addItem(NSMenuItem.separator())
+
         let quitItem = NSMenuItem(title: NSLocalizedString("quit.app", comment: ""), action: #selector(Self.quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
-        
+
         item.menu = menu
-        
+
         statusItem = item
     }
     
+    @objc func toggleEngine() {
+        MyEngine.shared.toggle()
+    }
+
     // MARK: - 窗口操作
-    
+
     @objc func toggleWindow() {
-        // 保存当前激活策略
-        let currentPolicy = NSApplication.shared.activationPolicy()
+        print("toggleWindow called, mainWindow: \(String(describing: mainWindow))")
         
-        // 临时设置为 regular 策略以确保窗口可以显示
-        if currentPolicy != .regular {
-            NSApplication.shared.setActivationPolicy(.regular)
-        }
-        
-        if let window = NSApplication.shared.windows.first {
-            if window.isVisible && !window.isMiniaturized && window.isKeyWindow {
+        if let window = mainWindow, window.isVisible || window.isMiniaturized {
+            if window.isVisible && window.isKeyWindow {
                 window.miniaturize(nil)
-                // 如果原来的策略不是 regular，恢复它
-                if currentPolicy != .regular {
-                    NSApplication.shared.setActivationPolicy(currentPolicy)
-                }
             } else {
                 if window.isMiniaturized {
                     window.deminiaturize(nil)
                 }
+                NSApplication.shared.setActivationPolicy(.regular)
+                NSApp.activate(ignoringOtherApps: true)
+                window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)
-                NSApplication.shared.activate(ignoringOtherApps: true)
             }
         } else {
-            // 如果没有窗口，尝试激活应用程序，这会触发 WindowGroup 创建窗口
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            // 延迟一下确保窗口被创建
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if let window = NSApplication.shared.windows.first {
-                    window.makeKeyAndOrderFront(nil)
-                }
-            }
+            createNewWindow()
         }
     }
     
+    private func createNewWindow() {
+        print("createNewWindow called")
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        let contentView = ContentView()
+        let hostingController = NSHostingController(rootView: contentView)
+        let newWindow = NSWindow(contentViewController: hostingController)
+        newWindow.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+        newWindow.titlebarAppearsTransparent = true
+        newWindow.titleVisibility = .hidden
+        newWindow.setContentSize(NSSize(width: 480, height: 350))
+        newWindow.center()
+        newWindow.isReleasedWhenClosed = false
+        newWindow.delegate = self
+        newWindow.orderFrontRegardless()
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        mainWindow = newWindow
+        print("mainWindow created: \(String(describing: mainWindow))")
+    }
+    
+    func setMainWindow(_ window: NSWindow) {
+        mainWindow = window
+        window.delegate = self
+        print("mainWindow set from ContentView: \(String(describing: mainWindow))")
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowWillClose(_ notification: Notification) {
+        print("windowWillClose called")
+        if UserDefaults.standard.bool(forKey: "setting_hide_dock") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                NSApplication.shared.setActivationPolicy(.accessory)
+            }
+        }
+    }
+
+    // MARK: - NSMenuDelegate
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        if let item = engineMenuItem {
+            if MyEngine.shared.isPaused {
+                item.title = NSLocalizedString("resume.engine", comment: "")
+            } else {
+                item.title = NSLocalizedString("pause.engine", comment: "")
+            }
+        }
+    }
+
     @objc func quitApp() {
         NSApplication.shared.terminate(nil)
     }
@@ -107,7 +157,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         image.unlockFocus()
         image.isTemplate = true
-        
+
         return image
     }
 }

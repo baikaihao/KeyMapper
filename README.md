@@ -3,11 +3,11 @@ an easy small MacOS app for Windows users who prefer to use ctrl+c instead of co
 
 
 <p align = center>
-<img src="https://github.com/baikaihao/KeyMapper/blob/main/app图标.png?raw=true" width="100" height="100">
+<img src="https://github.com/baikaihao/KeyMapper/blob/main/other/app图标.png?raw=true" width="100" height="100">
 </p>
 
 ---
-
+ 
 ## English Version
 
 Hi there! I built this little tool just three days after getting my first MacBook. After a decade of "Ctrl+C" muscle memory, I honestly couldn't handle the finger gymnastics required for "Command+C"—it was pure torture! I’m not sure if someone else has built a similar tool, but given how powerful AI is nowadays, I decided to just "vibe-code" it into existence. (Shoutout to Gemini and Qwen for helping me grind this out in 12 hours! 🚀)

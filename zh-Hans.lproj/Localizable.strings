@@ -1,7 +1,10 @@
 /* Status Bar */
 "engine.running" = "引擎运行中";
 "engine.waiting" = "等待授权...";
+"engine.paused" = "引擎已暂停";
 "enable.accessibility" = "去开启";
+"pause" = "暂停";
+"resume" = "恢复";
 
 /* Main View */
 "new.mapping" = "新建映射";
@@ -23,4 +26,6 @@
 
 /* Menu Bar */
 "show.window" = "显示窗口";
+"pause.engine" = "暂停引擎";
+"resume.engine" = "恢复引擎";
 "quit.app" = "退出 KeyMapper";

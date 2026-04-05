@@ -6,13 +6,34 @@ class MyEngine: ObservableObject {
     static let shared = MyEngine()
     @Published var list: [MyMap] = [] { didSet { save() } }
     @Published var isActive: Bool = false
+    @Published var isPaused: Bool = false
     
     private var tap: CFMachPort?
     private var retryTimer: Timer?
+    private var authTimer: Timer?
     
     init() {
         load()
+        checkAccessibility()
         start()
+    }
+    
+    func checkAccessibility() {
+        let trusted = AXIsProcessTrusted()
+        self.isActive = trusted
+        
+        if !trusted {
+            authTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
+                let isNowTrusted = AXIsProcessTrusted()
+                if isNowTrusted {
+                    DispatchQueue.main.async {
+                        self?.isActive = true
+                    }
+                    timer.invalidate()
+                    self?.authTimer = nil
+                }
+            }
+        }
     }
     
     func save() {
@@ -28,6 +49,28 @@ class MyEngine: ObservableObject {
         }
     }
     
+    func pause() {
+        isPaused = true
+        if let t = tap {
+            CGEvent.tapEnable(tap: t, enable: false)
+        }
+    }
+    
+    func resume() {
+        isPaused = false
+        if let t = tap {
+            CGEvent.tapEnable(tap: t, enable: true)
+        }
+    }
+    
+    func toggle() {
+        if isPaused {
+            resume()
+        } else {
+            pause()
+        }
+    }
+    
     func start() {
         retryTimer?.invalidate()
         let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
@@ -36,6 +79,10 @@ class MyEngine: ObservableObject {
             let f = event.flags.rawValue
             
             if event.getIntegerValueField(.eventSourceUserData) == 12345 {
+                return Unmanaged.passRetained(event)
+            }
+            
+            if MyEngine.shared.isPaused {
                 return Unmanaged.passRetained(event)
             }
             
