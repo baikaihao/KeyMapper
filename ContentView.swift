@@ -15,11 +15,23 @@ struct ContentView: View {
             // 顶部状态条 + 设置按钮
             HStack {
                 Circle()
-                    .fill(engine.isActive ? Color.green : Color.red)
+                    .fill(engine.isActive ? (engine.isPaused ? Color.orange : Color.green) : Color.red)
                     .frame(width: 8, height: 8)
-                Text(engine.isActive ? NSLocalizedString("engine.running", comment: "") : NSLocalizedString("engine.waiting", comment: ""))
+                Text(engine.isActive ? (engine.isPaused ? NSLocalizedString("engine.paused", comment: "") : NSLocalizedString("engine.running", comment: "")) : NSLocalizedString("engine.waiting", comment: ""))
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(engine.isActive ? .green : .red)
+                    .foregroundColor(engine.isActive ? (engine.isPaused ? .orange : .green) : .red)
+                
+                if engine.isActive {
+                    Button(action: { engine.toggle() }) {
+                        Text(engine.isPaused ? NSLocalizedString("resume", comment: "") : NSLocalizedString("pause", comment: ""))
+                            .font(.system(size: 10))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(engine.isPaused ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
                 
                 Spacer()
                 
@@ -43,7 +55,7 @@ struct ContentView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(engine.isActive ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+            .background(engine.isActive ? (engine.isPaused ? Color.orange.opacity(0.1) : Color.green.opacity(0.1)) : Color.red.opacity(0.1))
             
             Divider()
             
@@ -136,6 +148,27 @@ struct ContentView: View {
         .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg))
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .onAppear {
+            if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
+                window.isReleasedWhenClosed = false
+                AppDelegate.instance.setMainWindow(window)
+                
+                if !engine.isActive {
+                    window.level = .floating
+                }
+            }
+        }
+        .onChange(of: engine.isActive) { isActive in
+            if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
+                if isActive {
+                    window.level = .normal
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKeyAndOrderFront(nil)
+                } else {
+                    window.level = .floating
+                }
+            }
         }
     }
     

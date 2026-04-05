@@ -1,7 +1,10 @@
 /* Status Bar */
 "engine.running" = "Engine Running";
 "engine.waiting" = "Waiting for Authorization...";
+"engine.paused" = "Engine Paused";
 "enable.accessibility" = "Enable";
+"pause" = "Pause";
+"resume" = "Resume";
 
 /* Main View */
 "new.mapping" = "New Mapping";
@@ -23,4 +26,6 @@
 
 /* Menu Bar */
 "show.window" = "Show Window";
+"pause.engine" = "Pause Engine";
+"resume.engine" = "Resume Engine";
 "quit.app" = "Quit KeyMapper";
