@@ -27,6 +27,7 @@
 		FBA679462F781F2900E6F969 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6793A2F781F2900E6F969 /* InfoPlist.strings */; };
 		FBA679472F781F2900E6F969 /* screenshot.jpg in Resources */ = {isa = PBXBuildFile; fileRef = FBA679312F781F2900E6F969 /* screenshot.jpg */; };
 		FBA679482F781F2900E6F969 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6793C2F781F2900E6F969 /* Localizable.strings */; };
+		FBA679492F781F2A00E6F969 /* BlacklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		FBA679372F781F2900E6F969 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FBA679392F781F2900E6F969 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = InfoPlist.strings; sourceTree = "<group>"; };
 		FBA6793B2F781F2900E6F969 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = Localizable.strings; sourceTree = "<group>"; };
+		FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +140,7 @@
 		FBA679382F781F2900E6F969 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */,
 				FBA679342F781F2900E6F969 /* AlertBanner.swift */,
 				FBA679352F781F2900E6F969 /* KeyLogic.swift */,
 				FBA679362F781F2900E6F969 /* RecordRow.swift */,
@@ -238,6 +241,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FBA679492F781F2A00E6F969 /* BlacklistView.swift in Sources */,
 				FBA6793E2F781F2900E6F969 /* SettingsView.swift in Sources */,
 				FBA6793F2F781F2900E6F969 /* RecordRow.swift in Sources */,
 				FBA679402F781F2900E6F969 /* mainApp.swift in Sources */,

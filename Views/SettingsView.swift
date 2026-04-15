@@ -9,6 +9,7 @@ struct SettingsView: View {
     @StateObject var engine = MyEngine.shared
     @State private var isRecHotkey = false
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
+    @State private var showBlacklist = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -97,19 +98,44 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                
+                Divider()
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("app.blacklist", comment: ""))
+                            .font(.system(size: 13, weight: .medium))
+                        Text(NSLocalizedString("app.blacklist.short.desc", comment: ""))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button(action: { showBlacklist = true }) {
+                        Text("\(engine.blacklist.count)")
+                            .font(.system(size: 12, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.secondary.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 5)
 
             Spacer()
         }
         .padding(20)
-        .frame(width: 300, height: 310)
+        .frame(width: 300, height: 370)
         .background(KeyLogic(r1: $isRecHotkey, r2: .constant(false), t1: $tmpHotkey, t2: .constant(nil)))
         .onChange(of: isRecHotkey) { newValue in
             if !newValue, let hk = tmpHotkey {
                 engine.pauseHotkey = hk
                 tmpHotkey = nil
             }
+        }
+        .sheet(isPresented: $showBlacklist) {
+            BlacklistView()
         }
     }
 

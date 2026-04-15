@@ -8,6 +8,7 @@ class MyEngine: ObservableObject {
     @Published var isActive: Bool = false
     @Published var isPaused: Bool = false
     @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil { didSet { savePauseHotkey() } }
+    @Published var blacklist: [String] = [] { didSet { saveBlacklist() } }
     
     private var tap: CFMachPort?
     private var retryTimer: Timer?
@@ -16,6 +17,7 @@ class MyEngine: ObservableObject {
     init() {
         load()
         loadPauseHotkey()
+        loadBlacklist()
         checkAccessibility()
         start()
     }
@@ -73,6 +75,19 @@ class MyEngine: ObservableObject {
         }
     }
     
+    func saveBlacklist() {
+        if let data = try? JSONEncoder().encode(blacklist) {
+            UserDefaults.standard.set(data, forKey: "setting_blacklist")
+        }
+    }
+    
+    func loadBlacklist() {
+        if let data = UserDefaults.standard.data(forKey: "setting_blacklist"),
+           let decoded = try? JSONDecoder().decode([String].self, from: data) {
+            self.blacklist = decoded
+        }
+    }
+    
     func pause() {
         isPaused = true
     }
@@ -111,6 +126,12 @@ class MyEngine: ObservableObject {
             }
             
             if MyEngine.shared.isPaused {
+                return Unmanaged.passRetained(event)
+            }
+            
+            if let frontApp = NSWorkspace.shared.frontmostApplication,
+               let bundleId = frontApp.bundleIdentifier,
+               MyEngine.shared.blacklist.contains(bundleId) {
                 return Unmanaged.passRetained(event)
             }
             
