@@ -35,3 +35,10 @@
 "pause.hotkey.record" = "录制快捷键";
 "pause.hotkey.clear" = "清除";
 "pause.hotkey.not.set" = "未设置";
+
+"app.blacklist" = "应用黑名单";
+"app.blacklist.desc" = "在以下应用中，按键映射将不生效";
+"app.blacklist.short.desc" = "在这些应用中禁用映射";
+"app.blacklist.empty" = "暂无黑名单应用";
+"app.blacklist.add" = "添加应用";
+"app.blacklist.select" = "选择要添加到黑名单的应用";
