@@ -1,0 +1,10 @@
+- [x] MyEngine.pauseHotkey 属性可正确从 UserDefaults 加载和保存
+- [x] MyEngine.pause() 不再调用 CGEvent.tapEnable(tap:enable:false)，仅设置 isPaused = true
+- [x] MyEngine.resume() 不再调用 CGEvent.tapEnable(tap:enable:true)，仅设置 isPaused = false
+- [x] CGEvent Tap 回调中暂停快捷键检测位于防重入标记检查之后、isPaused 判断之前
+- [x] 按下暂停快捷键时引擎正确切换暂停/恢复状态，且快捷键事件被吞掉不传递
+- [x] 引擎暂停状态下按下暂停快捷键可正确恢复引擎
+- [x] 暂停快捷键与映射规则冲突时，暂停快捷键优先生效
+- [x] 未配置暂停快捷键时，引擎行为与之前一致
+- [x] 设置页面显示暂停快捷键配置项，支持录制和清除
+- [x] 中英文本地化字符串已添加

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     static let instance = AppDelegate()
@@ -7,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     private var statusItem: NSStatusItem?
     private var mainWindow: NSWindow?
     private var engineMenuItem: NSMenuItem?
+    private var cancellable: AnyCancellable?
 
     // MARK: - 菜单栏图标
 
@@ -43,6 +45,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         item.menu = menu
 
         statusItem = item
+        
+        updateStatusBarIconAlpha()
+        
+        cancellable = MyEngine.shared.$isPaused
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusBarIconAlpha()
+            }
+    }
+    
+    private func updateStatusBarIconAlpha() {
+        statusItem?.button?.alphaValue = MyEngine.shared.isPaused ? 0.5 : 1.0
     }
     
     @objc func toggleEngine() {
@@ -114,11 +128,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         if let item = engineMenuItem {
-            if MyEngine.shared.isPaused {
-                item.title = NSLocalizedString("resume.engine", comment: "")
-            } else {
-                item.title = NSLocalizedString("pause.engine", comment: "")
+            var title = MyEngine.shared.isPaused ? NSLocalizedString("resume.engine", comment: "") : NSLocalizedString("pause.engine", comment: "")
+            if let hk = MyEngine.shared.pauseHotkey {
+                title += MyMap.getName(hk.0, hk.1)
             }
+            item.title = title
         }
     }
 

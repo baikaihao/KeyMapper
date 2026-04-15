@@ -29,3 +29,9 @@
 "pause.engine" = "暂停引擎";
 "resume.engine" = "恢复引擎";
 "quit.app" = "退出 KeyMapper";
+
+"pause.hotkey" = "暂停快捷键";
+"pause.hotkey.desc" = "按下快捷键切换引擎暂停/恢复";
+"pause.hotkey.record" = "录制快捷键";
+"pause.hotkey.clear" = "清除";
+"pause.hotkey.not.set" = "未设置";
