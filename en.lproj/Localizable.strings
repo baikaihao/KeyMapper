@@ -35,3 +35,10 @@
 "pause.hotkey.record" = "Record Hotkey";
 "pause.hotkey.clear" = "Clear";
 "pause.hotkey.not.set" = "Not Set";
+
+"app.blacklist" = "App Blacklist";
+"app.blacklist.desc" = "Key mapping will be disabled in these apps";
+"app.blacklist.short.desc" = "Disable mapping in these apps";
+"app.blacklist.empty" = "No apps in blacklist";
+"app.blacklist.add" = "Add App";
+"app.blacklist.select" = "Select an app to add to blacklist";
