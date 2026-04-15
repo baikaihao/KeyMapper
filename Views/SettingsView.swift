@@ -6,7 +6,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @AppStorage("setting_launch_at_login") private var launchAtLogin = false
     @AppStorage("setting_hide_dock") private var hideDock = false
-    
+    @StateObject var engine = MyEngine.shared
+    @State private var isRecHotkey = false
+    @State private var tmpHotkey: (UInt16, UInt64)? = nil
+
     var body: some View {
         VStack(spacing: 20) {
             HStack {
@@ -19,11 +22,10 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            
+
             Divider()
-            
+
             VStack(alignment: .leading, spacing: 15) {
-                // 开机启动
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(NSLocalizedString("launch.at.login", comment: ""))
@@ -39,10 +41,9 @@ struct SettingsView: View {
                             toggleLaunchAtLogin(enabled: newValue)
                         }
                 }
-                
+
                 Divider()
-                
-                // 隐藏程序坞
+
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(NSLocalizedString("hide.dock.icon", comment: ""))
@@ -58,19 +59,63 @@ struct SettingsView: View {
                             toggleDockIcon(hide: newValue)
                         }
                 }
+
+                Divider()
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("pause.hotkey", comment: ""))
+                            .font(.system(size: 13, weight: .medium))
+                        Text(NSLocalizedString("pause.hotkey.desc", comment: ""))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if isRecHotkey {
+                        Text(NSLocalizedString("waiting.for.input", comment: ""))
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                    } else if let hk = engine.pauseHotkey {
+                        Text(MyMap.getName(hk.0, hk.1))
+                            .font(.system(size: 12, design: .monospaced))
+
+                        Button(action: {
+                            engine.pauseHotkey = (keyCode: 6, flags: 0x120000)
+                        }) {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: {
+                            isRecHotkey = true
+                        }) {
+                            Text(NSLocalizedString("pause.hotkey.record", comment: ""))
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
             .padding(.horizontal, 5)
-            
+
             Spacer()
         }
         .padding(20)
-        .frame(width: 300, height: 250)
+        .frame(width: 300, height: 310)
+        .background(KeyLogic(r1: $isRecHotkey, r2: .constant(false), t1: $tmpHotkey, t2: .constant(nil)))
+        .onChange(of: isRecHotkey) { newValue in
+            if !newValue, let hk = tmpHotkey {
+                engine.pauseHotkey = hk
+                tmpHotkey = nil
+            }
+        }
     }
-    
-    // 开机启动
+
     private func toggleLaunchAtLogin(enabled: Bool) {
         let service = SMAppService.mainApp
-        
+
         if enabled {
             do {
                 try service.register()
@@ -89,8 +134,7 @@ struct SettingsView: View {
             }
         }
     }
-    
-    // 隐藏程序坞
+
     private func toggleDockIcon(hide: Bool) {
         let policy: NSApplication.ActivationPolicy = hide ? .accessory : .regular
         NSApplication.shared.setActivationPolicy(policy)

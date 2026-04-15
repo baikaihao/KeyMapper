@@ -7,6 +7,7 @@ class MyEngine: ObservableObject {
     @Published var list: [MyMap] = [] { didSet { save() } }
     @Published var isActive: Bool = false
     @Published var isPaused: Bool = false
+    @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil { didSet { savePauseHotkey() } }
     
     private var tap: CFMachPort?
     private var retryTimer: Timer?
@@ -14,6 +15,7 @@ class MyEngine: ObservableObject {
     
     init() {
         load()
+        loadPauseHotkey()
         checkAccessibility()
         start()
     }
@@ -49,18 +51,34 @@ class MyEngine: ObservableObject {
         }
     }
     
+    func savePauseHotkey() {
+        if let hk = pauseHotkey {
+            let dict: [String: Any] = ["keyCode": Int(hk.keyCode), "flags": Int(hk.flags)]
+            if let data = try? JSONSerialization.data(withJSONObject: dict) {
+                UserDefaults.standard.set(data, forKey: "setting_pause_hotkey")
+            }
+        } else {
+            UserDefaults.standard.removeObject(forKey: "setting_pause_hotkey")
+        }
+    }
+    
+    func loadPauseHotkey() {
+        if let data = UserDefaults.standard.data(forKey: "setting_pause_hotkey"),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let keyCode = dict["keyCode"] as? Int,
+           let flags = dict["flags"] as? Int {
+            self.pauseHotkey = (keyCode: UInt16(keyCode), flags: UInt64(flags))
+        } else {
+            self.pauseHotkey = (keyCode: 6, flags: 0x120000)
+        }
+    }
+    
     func pause() {
         isPaused = true
-        if let t = tap {
-            CGEvent.tapEnable(tap: t, enable: false)
-        }
     }
     
     func resume() {
         isPaused = false
-        if let t = tap {
-            CGEvent.tapEnable(tap: t, enable: true)
-        }
     }
     
     func toggle() {
@@ -80,6 +98,16 @@ class MyEngine: ObservableObject {
             
             if event.getIntegerValueField(.eventSourceUserData) == 12345 {
                 return Unmanaged.passRetained(event)
+            }
+            
+            if let hk = MyEngine.shared.pauseHotkey {
+                let modifierMask: UInt64 = 0x40000 | 0x80000 | 0x20000 | 0x100000
+                if type == .keyDown && c == hk.keyCode && (f & modifierMask) == (hk.flags & modifierMask) {
+                    DispatchQueue.main.async {
+                        MyEngine.shared.toggle()
+                    }
+                    return nil
+                }
             }
             
             if MyEngine.shared.isPaused {
