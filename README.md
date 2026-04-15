@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <b>A lightweight macOS key remapping tool for Windows users</b><br>
-  <b>轻量级 macOS 按键映射工具，专为 Windows 用户打造</b>
+  <b>A lightweight macOS key remapping tool for Mac users</b><br>
+  <b>轻量级 macOS 按键映射工具，专为 Mac 用户打造</b>
 </p>
 
 <p align="center">
