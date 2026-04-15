@@ -29,3 +29,9 @@
 "pause.engine" = "Pause Engine";
 "resume.engine" = "Resume Engine";
 "quit.app" = "Quit KeyMapper";
+
+"pause.hotkey" = "Pause Hotkey";
+"pause.hotkey.desc" = "Press hotkey to toggle engine pause/resume";
+"pause.hotkey.record" = "Record Hotkey";
+"pause.hotkey.clear" = "Clear";
+"pause.hotkey.not.set" = "Not Set";
