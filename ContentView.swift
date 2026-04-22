@@ -1,156 +1,42 @@
 import SwiftUI
 import AppKit
 
-// ============ 主界面 ============
+enum SidebarItem: String, CaseIterable {
+    case rules = "rules"
+    case blacklist = "blacklist"
+    case settings = "settings"
+    case about = "about"
+    
+    var title: String {
+        switch self {
+        case .rules: return NSLocalizedString("sidebar.rules", comment: "")
+        case .blacklist: return NSLocalizedString("sidebar.blacklist", comment: "")
+        case .settings: return NSLocalizedString("sidebar.settings", comment: "")
+        case .about: return NSLocalizedString("sidebar.about", comment: "")
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .rules: return "keyboard"
+        case .blacklist: return "xmark.circle"
+        case .settings: return "gearshape"
+        case .about: return "info.circle"
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject var engine = MyEngine.shared
-    @State private var tmpTrig: (UInt16, UInt64)?
-    @State private var tmpTarg: (UInt16, UInt64)?
-    @State private var isRec1 = false
-    @State private var isRec2 = false
-    @State private var showSettings = false
+    @State private var selectedTab: SidebarItem = .rules
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 顶部状态条 + 设置按钮
-            HStack {
-                Circle()
-                    .fill(engine.isActive ? (engine.isPaused ? Color.orange : Color.green) : Color.red)
-                    .frame(width: 8, height: 8)
-                Text(engine.isActive ? (engine.isPaused ? NSLocalizedString("engine.paused", comment: "") : NSLocalizedString("engine.running", comment: "")) : NSLocalizedString("engine.waiting", comment: ""))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(engine.isActive ? (engine.isPaused ? .orange : .green) : .red)
-                
-                if engine.isActive {
-                    Button(action: { engine.toggle() }) {
-                        Text(engine.isPaused ? NSLocalizedString("resume", comment: "") : NSLocalizedString("pause", comment: ""))
-                            .font(.system(size: 10))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(engine.isPaused ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                Spacer()
-                
-                // 设置按钮
-                Button(action: { showSettings = true }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help(NSLocalizedString("settings", comment: ""))
-                
-                // 未授权时显示开启按钮
-                if !engine.isActive {
-                    Button(NSLocalizedString("enable.accessibility", comment: "")) {
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(engine.isActive ? (engine.isPaused ? Color.orange.opacity(0.1) : Color.green.opacity(0.1)) : Color.red.opacity(0.1))
-            
-            Divider()
-            
-            // 主内容区
-            HStack(alignment: .top, spacing: 0) {
-                // 左侧：新建映射区
-                VStack(spacing: 15) {
-                    Text(NSLocalizedString("new.mapping", comment: ""))
-                        .font(.headline)
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        RecordRow(isRec: $isRec1, val: $tmpTrig, title: NSLocalizedString("press.original.key", comment: "")) {
-                            if isRec1 { isRec2 = false }
-                        }
-                        RecordRow(isRec: $isRec2, val: $tmpTarg, title: NSLocalizedString("map.to", comment: "")) {
-                            if isRec2 { isRec1 = false }
-                        }
-                    }
-                    .padding(10)
-                    .background(Color(NSColor.windowBackgroundColor))
-                    .cornerRadius(8)
-                    
-                    Button(action: addMapping) {
-                        Label(NSLocalizedString("save.rule", comment: ""), systemImage: "plus.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(tmpTrig == nil || tmpTarg == nil)
-                }
-                .padding()
-                .frame(width: 200)
-                
-                Divider()
-                
-                // 右侧：规则列表区
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(NSLocalizedString("saved.rules", comment: ""))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .padding([.leading, .top], 10)
-                    
-                    List {
-                        ForEach(engine.list) { m in
-                            HStack(spacing: 8) {
-                                Text(MyMap.getName(m.fCode, m.fFlags))
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .frame(width: 50, alignment: .leading)
-                                
-                                Image(systemName: "arrow.right")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text(MyMap.getName(m.tCode, m.tFlags))
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .foregroundColor(.blue)
-                                    .frame(width: 50, alignment: .leading)
-                                
-                                Spacer()
-                                
-                                // 删除按钮
-                                Button(action: { deleteById(m.id) }) {
-                                    Image(systemName: "trash")
-                                        .font(.caption)
-                                        .foregroundColor(.red.opacity(0.7))
-                                }
-                                .buttonStyle(.plain)
-                                
-                                // 启用开关
-                                Toggle(" ", isOn: Binding(
-                                    get: { m.isOn },
-                                    set: { val in
-                                        if let idx = engine.list.firstIndex(where: { $0.id == m.id }) {
-                                            engine.list[idx].isOn = val
-                                        }
-                                    }
-                                ))
-                                .toggleStyle(.switch)
-                                .scaleEffect(0.7)
-                                .labelsHidden()
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .listStyle(.inset)
-                }
-                .frame(minWidth: 250, minHeight: 280)
-            }
+        NavigationSplitView {
+            SidebarView(selectedTab: $selectedTab)
+        } detail: {
+            DetailView(selectedTab: selectedTab)
         }
-        .fixedSize()
-        .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg))
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-        }
-        .onChange(of: isRec1) { _ in updateRecordingState() }
-        .onChange(of: isRec2) { _ in updateRecordingState() }
+        .navigationSplitViewStyle(.balanced)
         .onAppear {
             if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
                 window.isReleasedWhenClosed = false
@@ -173,20 +59,146 @@ struct ContentView: View {
             }
         }
     }
+}
+
+struct SidebarView: View {
+    @Binding var selectedTab: SidebarItem
+    @StateObject var engine = MyEngine.shared
     
-    func addMapping() {
-        if let a = tmpTrig, let b = tmpTarg {
-            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1))
-            tmpTrig = nil
-            tmpTarg = nil
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(SidebarItem.allCases, id: \.self) { item in
+                    SidebarButton(item: item, selectedTab: $selectedTab, count: item == .blacklist ? engine.blacklist.count : nil)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            
+            Spacer()
+            
+            VStack(spacing: 0) {
+                Divider()
+                
+                VStack(spacing: 12) {
+                    HStack {
+                        Text(engine.isActive ? (engine.isPaused ? NSLocalizedString("sidebar.engine.paused", comment: "") : NSLocalizedString("sidebar.engine.running", comment: "")) : NSLocalizedString("sidebar.engine.waiting", comment: ""))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(engine.isActive ? (engine.isPaused ? .orange : .green) : .red)
+                        
+                        Spacer()
+                        
+                        if engine.isActive {
+                            Toggle("", isOn: Binding(
+                                get: { !engine.isPaused },
+                                set: { engine.isPaused = !$0 }
+                            ))
+                            .toggleStyle(.switch)
+                            .scaleEffect(0.6)
+                            .labelsHidden()
+                        }
+                    }
+                    
+                    if let hk = engine.pauseHotkey {
+                        VStack(spacing: 2) {
+                            Text(String(format: NSLocalizedString("sidebar.pause.hint", comment: ""), MyMap.getName(hk.0, hk.1)))
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                            
+                            Text(formatDate())
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(12)
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+        .frame(minWidth: 200)
+    }
+    
+    private func formatDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: Date())
+    }
+}
+
+struct SidebarButton: View {
+    let item: SidebarItem
+    @Binding var selectedTab: SidebarItem
+    let count: Int?
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: { selectedTab = item }) {
+            HStack(spacing: 8) {
+                Image(systemName: item.icon)
+                    .font(.system(size: 14))
+                    .frame(width: 18)
+                
+                Text(item.title)
+                    .font(.system(size: 13, weight: .medium))
+                
+                Spacer()
+                
+                if let count = count, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.15))
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(selectedTab == item ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.1) : Color.clear))
+            )
+            .foregroundColor(selectedTab == item ? .white : .primary)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
+}
+
+struct DetailView: View {
+    let selectedTab: SidebarItem
     
-    func updateRecordingState() {
-        engine.isRecording = isRec1 || isRec2
-    }
-    
-    func deleteById(_ id: UUID) {
-        engine.list.removeAll { $0.id == id }
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(selectedTab.title)
+                    .font(.system(size: 17, weight: .semibold))
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            Group {
+                switch selectedTab {
+                case .rules:
+                    RulesView()
+                case .blacklist:
+                    BlacklistView()
+                case .settings:
+                    SettingsView()
+                case .about:
+                    AboutView()
+                }
+            }
+        }
     }
 }

@@ -1,132 +1,151 @@
 import SwiftUI
 import AppKit
 import ServiceManagement
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @Environment(\.dismiss) var dismiss
     @AppStorage("setting_launch_at_login") private var launchAtLogin = false
     @AppStorage("setting_hide_dock") private var hideDock = false
     @StateObject var engine = MyEngine.shared
     @State private var isRecHotkey = false
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
-    @State private var showBlacklist = false
-
+    
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text(NSLocalizedString("settings", comment: ""))
-                    .font(.headline)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(NSLocalizedString("settings.general", comment: ""))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 15) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("launch.at.login", comment: ""))
-                            .font(.system(size: 13, weight: .medium))
-                        Text(NSLocalizedString("launch.at.login.desc", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: $launchAtLogin)
-                        .toggleStyle(.switch)
-                        .onChange(of: launchAtLogin) { newValue in
-                            toggleLaunchAtLogin(enabled: newValue)
+                        .padding(.bottom, 12)
+                    
+                    VStack(spacing: 0) {
+                        SettingsRow(
+                            title: NSLocalizedString("settings.launch.at.login", comment: ""),
+                            description: NSLocalizedString("settings.launch.at.login.desc", comment: "")
+                        ) {
+                            Toggle("", isOn: $launchAtLogin)
+                                .toggleStyle(.switch)
+                                .onChange(of: launchAtLogin) { newValue in
+                                    toggleLaunchAtLogin(enabled: newValue)
+                                }
                         }
-                }
-
-                Divider()
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("hide.dock.icon", comment: ""))
-                            .font(.system(size: 13, weight: .medium))
-                        Text(NSLocalizedString("hide.dock.icon.desc", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: $hideDock)
-                        .toggleStyle(.switch)
-                        .onChange(of: hideDock) { newValue in
-                            toggleDockIcon(hide: newValue)
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.hide.dock.icon", comment: ""),
+                            description: NSLocalizedString("settings.hide.dock.icon.desc", comment: "")
+                        ) {
+                            Toggle("", isOn: $hideDock)
+                                .toggleStyle(.switch)
+                                .onChange(of: hideDock) { newValue in
+                                    toggleDockIcon(hide: newValue)
+                                }
                         }
-                }
-
-                Divider()
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("pause.hotkey", comment: ""))
-                            .font(.system(size: 13, weight: .medium))
-                        Text(NSLocalizedString("pause.hotkey.desc", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
-                    Spacer()
-                    if isRecHotkey {
-                        Text(NSLocalizedString("waiting.for.input", comment: ""))
-                            .font(.system(size: 12))
-                            .foregroundColor(.orange)
-                    } else if let hk = engine.pauseHotkey {
-                        Text(MyMap.getName(hk.0, hk.1))
-                            .font(.system(size: 12, design: .monospaced))
-
-                        Button(action: {
-                            engine.pauseHotkey = (keyCode: 6, flags: 0x120000)
-                        }) {
-                            Image(systemName: "arrow.counterclockwise.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                }
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(NSLocalizedString("settings.mapping", comment: ""))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 12)
+                    
+                    VStack(spacing: 0) {
+                        SettingsRow(
+                            title: NSLocalizedString("settings.pause.hotkey", comment: ""),
+                            description: NSLocalizedString("settings.pause.hotkey.desc", comment: "")
+                        ) {
+                            HStack(spacing: 8) {
+                                if isRecHotkey {
+                                    Text(NSLocalizedString("settings.waiting.input", comment: ""))
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.orange)
+                                } else if let hk = engine.pauseHotkey {
+                                    Text(MyMap.getName(hk.0, hk.1))
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                        .foregroundColor(.accentColor)
+                                    
+                                    Button(action: {
+                                        engine.pauseHotkey = (keyCode: 6, flags: 0x120000)
+                                    }) {
+                                        Image(systemName: "arrow.counterclockwise.circle.fill")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    Button(action: {
+                                        isRecHotkey = true
+                                    }) {
+                                        Text(NSLocalizedString("settings.record", comment: ""))
+                                            .font(.system(size: 11))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button(action: {
-                            isRecHotkey = true
-                        }) {
-                            Text(NSLocalizedString("pause.hotkey.record", comment: ""))
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.accessibility", comment: ""),
+                            description: NSLocalizedString("settings.accessibility.desc", comment: "")
+                        ) {
+                            if engine.isActive {
+                                Label(NSLocalizedString("settings.authorized", comment: ""), systemImage: "checkmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.green)
+                            } else {
+                                Button(NSLocalizedString("settings.enable", comment: "")) {
+                                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                                }
                                 .font(.system(size: 11))
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
                 }
                 
-                Divider()
-                
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("app.blacklist", comment: ""))
-                            .font(.system(size: 13, weight: .medium))
-                        Text(NSLocalizedString("app.blacklist.short.desc", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(NSLocalizedString("settings.data", comment: ""))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 12)
+                    
+                    HStack(spacing: 12) {
+                        Button(action: exportConfig) {
+                            Label(NSLocalizedString("settings.export.rules", comment: ""), systemImage: "arrow.down.circle")
+                                .font(.system(size: 13, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: importConfig) {
+                            Label(NSLocalizedString("settings.import", comment: ""), systemImage: "arrow.up.circle")
+                                .font(.system(size: 13, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    Spacer()
-                    Button(action: { showBlacklist = true }) {
-                        Text("\(engine.blacklist.count)")
-                            .font(.system(size: 12, design: .monospaced))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.secondary.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 5)
-
-            Spacer()
+            .padding(20)
         }
-        .padding(20)
-        .frame(width: 300, height: 370)
         .background(KeyLogic(r1: $isRecHotkey, r2: .constant(false), t1: $tmpHotkey, t2: .constant(nil)))
         .onChange(of: isRecHotkey) { newValue in
             if !newValue, let hk = tmpHotkey {
@@ -134,21 +153,16 @@ struct SettingsView: View {
                 tmpHotkey = nil
             }
         }
-        .sheet(isPresented: $showBlacklist) {
-            BlacklistView()
-        }
     }
-
+    
     private func toggleLaunchAtLogin(enabled: Bool) {
         if #available(macOS 13.0, *) {
             let service = SMAppService.mainApp
-
+            
             if enabled {
                 do {
                     try service.register()
-                    print("Successfully registered launch service")
                 } catch {
-                    print("Failed to register: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         self.launchAtLogin = false
                     }
@@ -171,23 +185,151 @@ struct SettingsView: View {
             }
         }
     }
-
+    
     private func showLaunchError() {
         let alert = NSAlert()
-        alert.messageText = NSLocalizedString("launch.at.login.error.title", comment: "")
-        alert.informativeText = NSLocalizedString("launch.at.login.error.message", comment: "")
+        alert.messageText = NSLocalizedString("settings.launch.error.title", comment: "")
+        alert.informativeText = NSLocalizedString("settings.launch.error.message", comment: "")
         alert.alertStyle = .warning
         alert.addButton(withTitle: NSLocalizedString("ok", comment: ""))
         alert.runModal()
     }
-
+    
     private func toggleDockIcon(hide: Bool) {
         let policy: NSApplication.ActivationPolicy = hide ? .accessory : .regular
         NSApplication.shared.setActivationPolicy(policy)
-
+        
         if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
         }
+    }
+    
+    private func exportConfig() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "keymapper_rules.json"
+        panel.message = NSLocalizedString("settings.export.message", comment: "")
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            let config: [String: Any] = [
+                "version": "2.0",
+                "mappings": engine.list.map { [
+                    "id": $0.id.uuidString,
+                    "fCode": $0.fCode,
+                    "fFlags": $0.fFlags,
+                    "tCode": $0.tCode,
+                    "tFlags": $0.tFlags,
+                    "isOn": $0.isOn
+                ]},
+                "blacklist": engine.blacklist,
+                "pauseHotkey": engine.pauseHotkey.map { [
+                    "keyCode": $0.keyCode,
+                    "flags": $0.flags
+                ]} as Any
+            ]
+            
+            do {
+                let data = try JSONSerialization.data(withJSONObject: config, options: .prettyPrinted)
+                try data.write(to: url)
+                showAlert(
+                    title: NSLocalizedString("settings.export.success.title", comment: ""),
+                    message: NSLocalizedString("settings.export.success.message", comment: ""),
+                    style: .informational
+                )
+            } catch {
+                showAlert(
+                    title: NSLocalizedString("settings.export.error.title", comment: ""),
+                    message: error.localizedDescription,
+                    style: .critical
+                )
+            }
+        }
+    }
+    
+    private func importConfig() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.message = NSLocalizedString("settings.import.message", comment: "")
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let data = try Data(contentsOf: url)
+                guard let config = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    throw NSError(domain: "KeyMapper", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
+                }
+                
+                var importedCount = 0
+                
+                if let mappings = config["mappings"] as? [[String: Any]] {
+                    let newMappings = mappings.compactMap { m -> MyMap? in
+                        guard let fCode = m["fCode"] as? UInt16,
+                              let fFlags = m["fFlags"] as? UInt64,
+                              let tCode = m["tCode"] as? UInt16,
+                              let tFlags = m["tFlags"] as? UInt64 else { return nil }
+                        let id = (m["id"] as? String).flatMap { UUID(uuidString: $0) } ?? UUID()
+                        let isOn = m["isOn"] as? Bool ?? true
+                        importedCount += 1
+                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn)
+                    }
+                    engine.list = newMappings
+                }
+                
+                if let blacklist = config["blacklist"] as? [String] {
+                    engine.blacklist = blacklist
+                }
+                
+                if let hotkey = config["pauseHotkey"] as? [String: Any],
+                   let keyCode = hotkey["keyCode"] as? UInt16,
+                   let flags = hotkey["flags"] as? UInt64 {
+                    engine.pauseHotkey = (keyCode: keyCode, flags: flags)
+                }
+                
+                showAlert(
+                    title: NSLocalizedString("settings.import.success.title", comment: ""),
+                    message: String(format: NSLocalizedString("settings.import.success.message", comment: ""), importedCount),
+                    style: .informational
+                )
+            } catch {
+                showAlert(
+                    title: NSLocalizedString("settings.import.error.title", comment: ""),
+                    message: error.localizedDescription,
+                    style: .critical
+                )
+            }
+        }
+    }
+    
+    private func showAlert(title: String, message: String, style: NSAlert.Style) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = style
+        alert.addButton(withTitle: NSLocalizedString("ok", comment: ""))
+        alert.runModal()
+    }
+}
+
+struct SettingsRow<Content: View>: View {
+    let title: String
+    let description: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            content
+        }
+        .padding(12)
     }
 }

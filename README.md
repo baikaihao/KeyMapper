@@ -1,7 +1,7 @@
 # KeyMapper for macOS
 
 <p align="center">
-  <img src="other/app图标.png" width="100" height="100">
+  <img src="other/AppIcon.png" width="100" height="100">
 </p>
 
 <p align="center">
@@ -38,6 +38,8 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **📊 Status Feedback**: Status bar icon dims when engine is paused for visual feedback
 - **🚫 App Blacklist**: Disable key mapping in specific applications (e.g., Terminal)
 - **🎭 Stealth Mode**: Hide Dock icon and enable "Launch at Login" for seamless background operation
+- **🔄 Import/Export**: Backup and restore your mapping rules with JSON files
+- **🔍 Check for Updates**: Built-in update checker via GitHub Releases
 - **🔒 Privacy First**: 100% open-source, no analytics, no network access
 
 ### 🎡 Radial Wheel
@@ -87,8 +89,13 @@ When you have multiple mappings for the same key combination, KeyMapper shows a 
    - Or click the status bar icon and select Pause/Resume
 
 4. **Manage Blacklist**:
-   - Open Settings and click the blacklist count
+   - Go to Blacklist page
    - Add apps where you want to disable key mapping
+
+5. **Backup & Restore**:
+   - Go to Settings page
+   - Click "Export Mapping Rules" to backup
+   - Click "Import Config" to restore
 
 ### 🛠 Technical Details
 
@@ -116,6 +123,8 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **📊 状态反馈**：引擎暂停时状态栏图标变淡，直观显示当前状态
 - **🚫 应用黑名单**：在特定应用中禁用按键映射（如终端）
 - **🎭 静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求
+- **🔄 导入导出**：支持备份和恢复映射规则
+- **🔍 检查更新**：内置更新检查功能
 - **🔒 完全开源**：不包含任何统计或网络模块，纯净安全，保护输入隐私
 
 ### 🎡 轮转转盘
@@ -165,8 +174,13 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
    - 或点击状态栏图标，选择暂停/恢复
 
 4. **管理黑名单**：
-   - 打开设置，点击黑名单数量
+   - 进入黑名单页面
    - 添加不想启用映射的应用
+
+5. **备份与恢复**：
+   - 进入设置页面
+   - 点击「导出映射规则」进行备份
+   - 点击「导入配置」进行恢复
 
 ### 🛠 技术细节
 
@@ -181,3 +195,7 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 ## 📄 License
 
 MIT License - See [LICENSE](LICENSE) for details.
+
+## 📝 Changelog
+
+See [CHANGELOG.md](other/CHANGELOG.md) for release history.

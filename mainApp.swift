@@ -14,11 +14,15 @@ struct KeyMapperApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .frame(minWidth: 750, minHeight: 500)
                 .onAppear {
                     appDelegate.setupMenuBarIcon()
                 }
         }
-        .windowResizability(.contentSize)
-        .windowStyle(.hiddenTitleBar)
+        .windowStyle(.automatic)
+        .windowToolbarStyle(.unified(showsTitle: true))
+        .commands {
+            CommandGroup(replacing: .newItem) { }
+        }
     }
 }
