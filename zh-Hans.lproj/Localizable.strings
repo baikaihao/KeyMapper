@@ -42,3 +42,8 @@
 "app.blacklist.empty" = "暂无黑名单应用";
 "app.blacklist.add" = "添加应用";
 "app.blacklist.select" = "选择要添加到黑名单的应用";
+
+/* Launch at Login Error */
+"launch.at.login.error.title" = "无法设置开机自启";
+"launch.at.login.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
+"ok" = "确定";
