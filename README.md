@@ -16,7 +16,7 @@
 ---
 
 <div align="center">
-  <img src="other/screenshot.png" height="300px">
+  <img src="other/screenshot.png" height="500px">
 </div>
 
 ---
