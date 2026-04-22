@@ -33,11 +33,25 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **🌍 Global Interception**: Uses low-level `CGEventTap` for system-wide key remapping
 - **🎬 Visual Recording**: No need to look up keycodes—just click "Record" and press your desired key
 - **⌨️ Modifier Support**: Full support for `⌘ Command`, `⌥ Option`, `⇧ Shift`, and `⌃ Control` combinations
+- **🎡 Radial Wheel**: When a key has multiple mappings, a beautiful radial wheel appears for quick selection
 - **⏯️ Pause Hotkey**: Global hotkey (default: `⇧⌘Z`) to instantly pause/resume the engine
 - **📊 Status Feedback**: Status bar icon dims when engine is paused for visual feedback
 - **🚫 App Blacklist**: Disable key mapping in specific applications (e.g., Terminal)
 - **🎭 Stealth Mode**: Hide Dock icon and enable "Launch at Login" for seamless background operation
 - **🔒 Privacy First**: 100% open-source, no analytics, no network access
+
+### 🎡 Radial Wheel
+
+When you have multiple mappings for the same key combination, KeyMapper shows a beautiful radial wheel selector:
+
+<div align="center">
+  <img src="other/RedialWheel.jpg" width="400px">
+</div>
+
+- **Instant Selection**: Hold the key, move mouse to select, release to execute
+- **Liquid Glass Effect**: Beautiful translucent glass effect on macOS 26+
+- **Quick Animation**: Fast spring animation for responsive feel
+- **ESC to Cancel**: Press ESC to dismiss without executing any mapping
 
 ### 🚀 Getting Started
 
@@ -62,11 +76,17 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
    - Click "Map To" and press the target key (e.g., `Command`)
    - Click "Save Rule"
 
-2. **Pause/Resume Engine**:
+2. **Multiple Mappings**:
+   - Create multiple mappings for the same key (e.g., `Ctrl+C` → `Command+C` and `Ctrl+C` → `Option+C`)
+   - When you press and hold the key, a radial wheel appears
+   - Move your mouse to select the desired mapping
+   - Release to execute
+
+3. **Pause/Resume Engine**:
    - Use the global hotkey `⇧⌘Z` (Shift+Command+Z) to toggle
    - Or click the status bar icon and select Pause/Resume
 
-3. **Manage Blacklist**:
+4. **Manage Blacklist**:
    - Open Settings and click the blacklist count
    - Add apps where you want to disable key mapping
 
@@ -91,11 +111,25 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **🌍 全局拦截**：利用底层 `CGEventTap` 技术，实现系统级按键重映射
 - **🎬 可视化录制**：无需记忆键位码，点击录制按钮后直接敲击键盘即可自动识别
 - **⌨️ 组合键支持**：完美支持 `⌘ Command`、`⌥ Option`、`⇧ Shift`、`⌃ Control` 的任意组合
+- **🎡 轮转转盘**：同一按键有多个映射时，弹出精美轮盘供快速选择
 - **⏯️ 暂停快捷键**：全局快捷键（默认：`⇧⌘Z`）快速暂停/恢复引擎
 - **📊 状态反馈**：引擎暂停时状态栏图标变淡，直观显示当前状态
 - **🚫 应用黑名单**：在特定应用中禁用按键映射（如终端）
 - **🎭 静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求
 - **🔒 完全开源**：不包含任何统计或网络模块，纯净安全，保护输入隐私
+
+### 🎡 轮转转盘
+
+当同一按键组合有多个映射时，KeyMapper 会显示一个精美的轮转转盘选择器：
+
+<div align="center">
+  <img src="other/RedialWheel.jpg" width="400px">
+</div>
+
+- **即时选择**：按住按键，移动鼠标选择，松手执行
+- **液态玻璃效果**：macOS 26+ 上呈现精美的半透明玻璃效果
+- **快速动画**：流畅的弹性动画，响应迅速
+- **ESC 取消**：按 ESC 键可取消本次操作
 
 ### 🚀 快速开始
 
@@ -120,11 +154,17 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
    - 点击「映射为」，按下目标键（如 `Command`）
    - 点击「保存规则」
 
-2. **暂停/恢复引擎**：
+2. **多映射选择**：
+   - 为同一按键创建多个映射（如 `Ctrl+C` → `Command+C` 和 `Ctrl+C` → `Option+C`）
+   - 按住按键时，轮转转盘会弹出
+   - 移动鼠标选择想要的映射
+   - 松手执行
+
+3. **暂停/恢复引擎**：
    - 使用全局快捷键 `⇧⌘Z`（Shift+Command+Z）切换
    - 或点击状态栏图标，选择暂停/恢复
 
-3. **管理黑名单**：
+4. **管理黑名单**：
    - 打开设置，点击黑名单数量
    - 添加不想启用映射的应用
 

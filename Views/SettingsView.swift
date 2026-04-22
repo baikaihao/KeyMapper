@@ -140,25 +140,45 @@ struct SettingsView: View {
     }
 
     private func toggleLaunchAtLogin(enabled: Bool) {
-        let service = SMAppService.mainApp
+        if #available(macOS 13.0, *) {
+            let service = SMAppService.mainApp
 
-        if enabled {
-            do {
-                try service.register()
-                print("Successfully registered launch service")
-            } catch {
-                print("Failed to register: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.launchAtLogin = false
+            if enabled {
+                do {
+                    try service.register()
+                    print("Successfully registered launch service")
+                } catch {
+                    print("Failed to register: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.launchAtLogin = false
+                    }
+                    showLaunchError()
+                }
+            } else {
+                service.unregister { error in
+                    if let error = error {
+                        print("Failed to unregister: \(error.localizedDescription)")
+                    }
                 }
             }
         } else {
-            service.unregister { error in
-                if let error = error {
-                    print("Failed to unregister: \(error.localizedDescription)")
+            let success = SMLoginItemSetEnabled("bkh.KeyMapper" as CFString, enabled)
+            if !success {
+                DispatchQueue.main.async {
+                    self.launchAtLogin = false
                 }
+                showLaunchError()
             }
         }
+    }
+
+    private func showLaunchError() {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("launch.at.login.error.title", comment: "")
+        alert.informativeText = NSLocalizedString("launch.at.login.error.message", comment: "")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: NSLocalizedString("ok", comment: ""))
+        alert.runModal()
     }
 
     private func toggleDockIcon(hide: Bool) {

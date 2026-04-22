@@ -42,3 +42,8 @@
 "app.blacklist.empty" = "No apps in blacklist";
 "app.blacklist.add" = "Add App";
 "app.blacklist.select" = "Select an app to add to blacklist";
+
+/* Launch at Login Error */
+"launch.at.login.error.title" = "Cannot Set Launch at Login";
+"launch.at.login.error.message" = "Try moving the app to the Applications folder and try again.";
+"ok" = "OK";

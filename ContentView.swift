@@ -149,6 +149,8 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .onChange(of: isRec1) { _ in updateRecordingState() }
+        .onChange(of: isRec2) { _ in updateRecordingState() }
         .onAppear {
             if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
                 window.isReleasedWhenClosed = false
@@ -178,6 +180,10 @@ struct ContentView: View {
             tmpTrig = nil
             tmpTarg = nil
         }
+    }
+    
+    func updateRecordingState() {
+        engine.isRecording = isRec1 || isRec2
     }
     
     func deleteById(_ id: UUID) {
