@@ -10,16 +10,14 @@
 		FBA679242F781F1F00E6F969 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6791B2F781F1F00E6F969 /* ContentView.swift */; };
 		FBA679252F781F1F00E6F969 /* MyEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679212F781F1F00E6F969 /* MyEngine.swift */; };
 		FBA679262F781F1F00E6F969 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679162F781F1F00E6F969 /* AppDelegate.swift */; };
-		FBA679272F781F1F00E6F969 /* app图标.png in Resources */ = {isa = PBXBuildFile; fileRef = FBA679182F781F1F00E6F969 /* app图标.png */; };
+		FBA679272F781F1F00E6F969 /* AppIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = FBA679182F781F1F00E6F969 /* AppIcon.png */; };
 		FBA679282F781F1F00E6F969 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6791D2F781F1F00E6F969 /* InfoPlist.strings */; };
 		FBA679292F781F1F00E6F969 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FBA679232F781F1F00E6F969 /* Info.plist */; };
 		FBA6792A2F781F1F00E6F969 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FBA679192F781F1F00E6F969 /* Assets.xcassets */; };
 		FBA6792B2F781F1F00E6F969 /* BarIcon.svg in Resources */ = {isa = PBXBuildFile; fileRef = FBA6791A2F781F1F00E6F969 /* BarIcon.svg */; };
 		FBA6792C2F781F1F00E6F969 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6791F2F781F1F00E6F969 /* Localizable.strings */; };
 		FBA6793E2F781F2900E6F969 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679372F781F2900E6F969 /* SettingsView.swift */; };
-		FBA6793F2F781F2900E6F969 /* RecordRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679362F781F2900E6F969 /* RecordRow.swift */; };
 		FBA679402F781F2900E6F969 /* mainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6792D2F781F2900E6F969 /* mainApp.swift */; };
-		FBA679412F781F2900E6F969 /* AlertBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679342F781F2900E6F969 /* AlertBanner.swift */; };
 		FBA679422F781F2900E6F969 /* KeyLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679352F781F2900E6F969 /* KeyLogic.swift */; };
 		FBA679432F781F2900E6F969 /* MyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6792E2F781F2900E6F969 /* MyMap.swift */; };
 		FBA679442F781F2900E6F969 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = FBA679302F781F2900E6F969 /* LICENSE */; };
@@ -29,12 +27,16 @@
 		FBA679482F781F2900E6F969 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6793C2F781F2900E6F969 /* Localizable.strings */; };
 		FBA679492F781F2A00E6F969 /* BlacklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */; };
 		FBA6794C2F781F2A00E6F969 /* RadialWheel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6794B2F781F2A00E6F969 /* RadialWheel.swift */; };
+		FBA6794D2F781F2B00E6F969 /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6794E2F781F2B00E6F969 /* RulesView.swift */; };
+		FBA6794F2F781F2B00E6F969 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679502F781F2B00E6F969 /* AboutView.swift */; };
+		FBA679512F781F2C00E6F969 /* GitHub_Invertocat_Black.svg in Resources */ = {isa = PBXBuildFile; fileRef = FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */; };
+		FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679542F781F2D00E6F969 /* UpdateService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		FB1430E12F644B6C006D109C /* KeyMapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBA679162F781F1F00E6F969 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		FBA679182F781F1F00E6F969 /* app图标.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "app图标.png"; sourceTree = "<group>"; };
+		FBA679182F781F1F00E6F969 /* AppIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIcon.png; sourceTree = "<group>"; };
 		FBA679192F781F1F00E6F969 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FBA6791A2F781F1F00E6F969 /* BarIcon.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = BarIcon.svg; sourceTree = "<group>"; };
 		FBA6791B2F781F1F00E6F969 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -47,14 +49,16 @@
 		FBA679302F781F2900E6F969 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		FBA679312F781F2900E6F969 /* screenshot.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = screenshot.jpg; sourceTree = "<group>"; };
 		FBA679332F781F2900E6F969 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		FBA679342F781F2900E6F969 /* AlertBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertBanner.swift; sourceTree = "<group>"; };
 		FBA679352F781F2900E6F969 /* KeyLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyLogic.swift; sourceTree = "<group>"; };
-		FBA679362F781F2900E6F969 /* RecordRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordRow.swift; sourceTree = "<group>"; };
 		FBA679372F781F2900E6F969 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FBA679392F781F2900E6F969 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = InfoPlist.strings; sourceTree = "<group>"; };
 		FBA6793B2F781F2900E6F969 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = Localizable.strings; sourceTree = "<group>"; };
 		FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistView.swift; sourceTree = "<group>"; };
 		FBA6794B2F781F2A00E6F969 /* RadialWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadialWheel.swift; sourceTree = "<group>"; };
+		FBA6794E2F781F2B00E6F969 /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
+		FBA679502F781F2B00E6F969 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = GitHub_Invertocat_Black.svg; sourceTree = "<group>"; };
+		FBA679542F781F2D00E6F969 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,9 +85,12 @@
 				FBA6792F2F781F2900E6F969 /* Models */,
 				FBA679322F781F2900E6F969 /* other */,
 				FBA679332F781F2900E6F969 /* README.md */,
+				FBA679552F781F2E00E6F969 /* Services */,
 				FBA679382F781F2900E6F969 /* Views */,
 				FBA6793D2F781F2900E6F969 /* zh-Hans.lproj */,
 				FB1430E22F644B6C006D109C /* Products */,
+				FBA679182F781F1F00E6F969 /* AppIcon.png */,
+				FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */,
 			);
 			sourceTree = "<group>";
 		};
@@ -133,7 +140,6 @@
 			children = (
 				FBA679302F781F2900E6F969 /* LICENSE */,
 				FBA679312F781F2900E6F969 /* screenshot.jpg */,
-				FBA679182F781F1F00E6F969 /* app图标.png */,
 				FBA6791A2F781F1F00E6F969 /* BarIcon.svg */,
 			);
 			path = other;
@@ -142,11 +148,11 @@
 		FBA679382F781F2900E6F969 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FBA679502F781F2B00E6F969 /* AboutView.swift */,
 				FBA6794A2F781F2A00E6F969 /* BlacklistView.swift */,
-				FBA679342F781F2900E6F969 /* AlertBanner.swift */,
 				FBA679352F781F2900E6F969 /* KeyLogic.swift */,
 				FBA6794B2F781F2A00E6F969 /* RadialWheel.swift */,
-				FBA679362F781F2900E6F969 /* RecordRow.swift */,
+				FBA6794E2F781F2B00E6F969 /* RulesView.swift */,
 				FBA679372F781F2900E6F969 /* SettingsView.swift */,
 			);
 			path = Views;
@@ -159,6 +165,14 @@
 				FBA6793C2F781F2900E6F969 /* Localizable.strings */,
 			);
 			path = "zh-Hans.lproj";
+			sourceTree = "<group>";
+		};
+		FBA679552F781F2E00E6F969 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FBA679542F781F2D00E6F969 /* UpdateService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -223,7 +237,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FBA679272F781F1F00E6F969 /* app图标.png in Resources */,
+				FBA679272F781F1F00E6F969 /* AppIcon.png in Resources */,
 				FBA679282F781F1F00E6F969 /* InfoPlist.strings in Resources */,
 				FBA679442F781F2900E6F969 /* LICENSE in Resources */,
 				FBA679452F781F2900E6F969 /* README.md in Resources */,
@@ -234,6 +248,7 @@
 				FBA6792A2F781F1F00E6F969 /* Assets.xcassets in Resources */,
 				FBA6792B2F781F1F00E6F969 /* BarIcon.svg in Resources */,
 				FBA6792C2F781F1F00E6F969 /* Localizable.strings in Resources */,
+				FBA679512F781F2C00E6F969 /* GitHub_Invertocat_Black.svg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -244,14 +259,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FBA6794F2F781F2B00E6F969 /* AboutView.swift in Sources */,
 				FBA679492F781F2A00E6F969 /* BlacklistView.swift in Sources */,
 				FBA6794C2F781F2A00E6F969 /* RadialWheel.swift in Sources */,
+				FBA6794D2F781F2B00E6F969 /* RulesView.swift in Sources */,
 				FBA6793E2F781F2900E6F969 /* SettingsView.swift in Sources */,
-				FBA6793F2F781F2900E6F969 /* RecordRow.swift in Sources */,
 				FBA679402F781F2900E6F969 /* mainApp.swift in Sources */,
-				FBA679412F781F2900E6F969 /* AlertBanner.swift in Sources */,
 				FBA679422F781F2900E6F969 /* KeyLogic.swift in Sources */,
 				FBA679432F781F2900E6F969 /* MyMap.swift in Sources */,
+				FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */,
 				FBA679242F781F1F00E6F969 /* ContentView.swift in Sources */,
 				FBA679252F781F1F00E6F969 /* MyEngine.swift in Sources */,
 				FBA679262F781F1F00E6F969 /* AppDelegate.swift in Sources */,
@@ -422,7 +438,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 20260422;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -433,7 +449,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -454,7 +470,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 20260422;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -465,7 +481,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

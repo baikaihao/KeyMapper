@@ -6,19 +6,78 @@
 "pause" = "Pause";
 "resume" = "Resume";
 
-/* Main View */
-"new.mapping" = "New Mapping";
-"press.original.key" = "Press Original Key: ";
-"map.to" = "Map To: ";
-"save.rule" = "Save Rule";
-"saved.rules" = "Saved Rules";
+/* Sidebar */
+"sidebar.rules" = "Rules";
+"sidebar.blacklist" = "Blacklist";
+"sidebar.settings" = "Settings";
+"sidebar.about" = "About";
+"sidebar.engine.running" = "Engine Running";
+"sidebar.engine.paused" = "Engine Paused";
+"sidebar.engine.waiting" = "Waiting for Auth";
+"sidebar.pause.hint" = "Press %@ to pause/resume mapping";
 
-/* Settings */
-"settings" = "Settings";
-"launch.at.login" = "Launch at Login";
-"launch.at.login.desc" = "Automatically run this app at login";
-"hide.dock.icon" = "Hide Dock Icon";
-"hide.dock.icon.desc" = "App will run in background";
+/* Rules View */
+"rules.title" = "Rules List";
+"rules.original.key" = "Original Key";
+"rules.map.to" = "Map To";
+"rules.enable" = "Enable";
+"rules.actions" = "Actions";
+"rules.press.original" = "Press Original Key";
+"rules.map.as" = "Map To";
+"rules.save" = "Save Rule";
+"rules.recording" = "Recording...";
+"rules.click.record" = "Click to Record";
+
+/* Blacklist View */
+"blacklist.title" = "Blacklist Management";
+"blacklist.desc" = "KeyMapper will automatically pause all mapping rules when blacklisted applications are running to prevent conflicts with native shortcuts.";
+"blacklist.add" = "Add Application to Blacklist";
+"blacklist.select.app" = "Select an app to add to blacklist";
+
+/* Settings View */
+"settings.general" = "General";
+"settings.mapping" = "Mapping Preferences";
+"settings.data" = "Data & Backup";
+"settings.launch.at.login" = "Launch at Login";
+"settings.launch.at.login.desc" = "Automatically run KeyMapper when you log in";
+"settings.hide.dock.icon" = "Show in Menu Bar";
+"settings.hide.dock.icon.desc" = "Display quick access icon in macOS menu bar";
+"settings.pause.hotkey" = "Pause Hotkey";
+"settings.pause.hotkey.desc" = "Press hotkey to toggle engine pause/resume";
+"settings.waiting.input" = "Waiting for input...";
+"settings.record" = "Record Hotkey";
+"settings.accessibility" = "Accessibility Permission";
+"settings.accessibility.desc" = "Accessibility permission is required to monitor keyboard events";
+"settings.authorized" = "Authorized";
+"settings.enable" = "Enable";
+"settings.export.rules" = "Export Mapping Rules";
+"settings.import" = "Import Config";
+"settings.export.message" = "Choose where to save the export file";
+"settings.import.message" = "Select a config file to import";
+"settings.export.success.title" = "Export Successful";
+"settings.export.success.message" = "Mapping rules have been exported successfully";
+"settings.export.error.title" = "Export Failed";
+"settings.import.success.title" = "Import Successful";
+"settings.import.success.message" = "Successfully imported %d mapping rules";
+"settings.import.error.title" = "Import Failed";
+"settings.launch.error.title" = "Cannot Set Launch at Login";
+"settings.launch.error.message" = "Try moving the app to the Applications folder and try again.";
+
+/* About View */
+"about.version" = "Version 2.0.4 (Build 20260422)";
+"about.check.update" = "Check for Updates";
+"about.license" = "License Agreement";
+"about.support" = "Technical Support";
+
+/* Update */
+"update.available.title" = "New Version Available";
+"update.available.message" = "Version %@ is available. You have %@";
+"update.latest.title" = "You're Up to Date";
+"update.latest.message" = "You're using the latest version of KeyMapper";
+"update.error.title" = "Update Check Failed";
+"update.download" = "Download Update";
+"update.error.invalid.url" = "Invalid URL";
+"update.error.invalid.response" = "Invalid response";
 
 /* Record Row */
 "waiting.for.input" = "Waiting for input...";
@@ -47,3 +106,4 @@
 "launch.at.login.error.title" = "Cannot Set Launch at Login";
 "launch.at.login.error.message" = "Try moving the app to the Applications folder and try again.";
 "ok" = "OK";
+"cancel" = "Cancel";

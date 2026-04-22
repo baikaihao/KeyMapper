@@ -6,19 +6,78 @@
 "pause" = "暂停";
 "resume" = "恢复";
 
-/* Main View */
-"new.mapping" = "新建映射";
-"press.original.key" = "按下原键: ";
-"map.to" = "映射为: ";
-"save.rule" = "保存规则";
-"saved.rules" = "已保存规则";
+/* Sidebar */
+"sidebar.rules" = "规则管理";
+"sidebar.blacklist" = "黑名单";
+"sidebar.settings" = "设置";
+"sidebar.about" = "关于";
+"sidebar.engine.running" = "引擎已启动";
+"sidebar.engine.paused" = "引擎已暂停";
+"sidebar.engine.waiting" = "等待授权";
+"sidebar.pause.hint" = "按下 %@ 暂停/恢复映射";
 
-/* Settings */
-"settings" = "设置";
-"launch.at.login" = "开机自动启动";
-"launch.at.login.desc" = "登录时自动运行此应用";
-"hide.dock.icon" = "隐藏程序坞图标";
-"hide.dock.icon.desc" = "应用将在后台运行";
+/* Rules View */
+"rules.title" = "规则列表";
+"rules.original.key" = "原键(摁下)";
+"rules.map.to" = "映射为";
+"rules.enable" = "启用";
+"rules.actions" = "操作";
+"rules.press.original" = "按下原键";
+"rules.map.as" = "映射为";
+"rules.save" = "保存规则";
+"rules.recording" = "正在输入...";
+"rules.click.record" = "点击录制按键";
+
+/* Blacklist View */
+"blacklist.title" = "黑名单管理";
+"blacklist.desc" = "在黑名单中的应用程序运行时，KeyMapper 将自动暂停所有映射规则，以防止与原生快捷键冲突。";
+"blacklist.add" = "添加应用程序到黑名单";
+"blacklist.select.app" = "选择要添加到黑名单的应用";
+
+/* Settings View */
+"settings.general" = "常规设置";
+"settings.mapping" = "映射偏好";
+"settings.data" = "数据与备份";
+"settings.launch.at.login" = "登录时启动";
+"settings.launch.at.login.desc" = "开启系统后自动运行 KeyMapper";
+"settings.hide.dock.icon" = "在菜单栏显示图标";
+"settings.hide.dock.icon.desc" = "在 macOS 顶部菜单栏显示快速访问图标";
+"settings.pause.hotkey" = "暂停快捷键";
+"settings.pause.hotkey.desc" = "按下快捷键切换引擎暂停/恢复";
+"settings.waiting.input" = "等待输入...";
+"settings.record" = "录制快捷键";
+"settings.accessibility" = "辅助功能权限";
+"settings.accessibility.desc" = "需要辅助功能权限才能监听键盘事件";
+"settings.authorized" = "已授权";
+"settings.enable" = "开启";
+"settings.export.rules" = "导出映射规则";
+"settings.import" = "导入配置";
+"settings.export.message" = "选择导出文件的保存位置";
+"settings.import.message" = "选择要导入的配置文件";
+"settings.export.success.title" = "导出成功";
+"settings.export.success.message" = "映射规则已成功导出";
+"settings.export.error.title" = "导出失败";
+"settings.import.success.title" = "导入成功";
+"settings.import.success.message" = "已成功导入 %d 条映射规则";
+"settings.import.error.title" = "导入失败";
+"settings.launch.error.title" = "无法设置开机自启";
+"settings.launch.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
+
+/* About View */
+"about.version" = "版本 2.0.4 (Build 20260422)";
+"about.check.update" = "检查更新";
+"about.license" = "许可证协议";
+"about.support" = "技术支持";
+
+/* Update */
+"update.available.title" = "发现新版本";
+"update.available.message" = "最新版本 %@ 已发布，当前版本为 %@";
+"update.latest.title" = "已是最新版本";
+"update.latest.message" = "您正在使用最新版本的 KeyMapper";
+"update.error.title" = "检查更新失败";
+"update.download" = "下载更新";
+"update.error.invalid.url" = "无效的 URL";
+"update.error.invalid.response" = "无效的响应";
 
 /* Record Row */
 "waiting.for.input" = "等待输入...";
@@ -47,3 +106,4 @@
 "launch.at.login.error.title" = "无法设置开机自启";
 "launch.at.login.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
 "ok" = "确定";
+"cancel" = "取消";

@@ -10,8 +10,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     private var engineMenuItem: NSMenuItem?
     private var cancellable: AnyCancellable?
 
-    // MARK: - 菜单栏图标
-
     func setupMenuBarIcon() {
         guard statusItem == nil else { return }
 
@@ -25,7 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         let menu = NSMenu()
         menu.delegate = self
 
-        let showItem = NSMenuItem(title: NSLocalizedString("show.window", comment: ""), action: #selector(Self.toggleWindow), keyEquivalent: "")
+        let showItem = NSMenuItem(title: NSLocalizedString("show.window", comment: ""), action: #selector(Self.showMainWindow), keyEquivalent: "")
         showItem.target = self
         menu.addItem(showItem)
 
@@ -63,68 +61,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         MyEngine.shared.toggle()
     }
 
-    // MARK: - 窗口操作
-
-    @objc func toggleWindow() {
-        print("toggleWindow called, mainWindow: \(String(describing: mainWindow))")
-        
-        if let window = mainWindow, window.isVisible || window.isMiniaturized {
-            if window.isVisible && window.isKeyWindow {
-                window.miniaturize(nil)
-            } else {
-                if window.isMiniaturized {
-                    window.deminiaturize(nil)
-                }
-                NSApplication.shared.setActivationPolicy(.regular)
-                NSApp.activate(ignoringOtherApps: true)
-                window.orderFrontRegardless()
-                window.makeKeyAndOrderFront(nil)
-            }
-        } else {
-            createNewWindow()
-        }
-    }
-    
-    private func createNewWindow() {
-        print("createNewWindow called")
+    @objc func showMainWindow() {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-
-        let contentView = ContentView()
-        let hostingController = NSHostingController(rootView: contentView)
-        let newWindow = NSWindow(contentViewController: hostingController)
-        newWindow.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-        newWindow.titlebarAppearsTransparent = true
-        newWindow.titleVisibility = .hidden
-        newWindow.setContentSize(NSSize(width: 480, height: 350))
-        newWindow.center()
-        newWindow.isReleasedWhenClosed = false
-        newWindow.delegate = self
-        newWindow.orderFrontRegardless()
-        newWindow.makeKeyAndOrderFront(nil)
         
-        mainWindow = newWindow
-        print("mainWindow created: \(String(describing: mainWindow))")
+        if let window = mainWindow {
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
+            window.makeKeyAndOrderFront(nil)
+        } else if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
+            mainWindow = window
+            window.delegate = self
+            window.makeKeyAndOrderFront(nil)
+        }
     }
     
     func setMainWindow(_ window: NSWindow) {
         mainWindow = window
         window.delegate = self
-        print("mainWindow set from ContentView: \(String(describing: mainWindow))")
     }
 
-    // MARK: - NSWindowDelegate
-
     func windowWillClose(_ notification: Notification) {
-        print("windowWillClose called")
         if UserDefaults.standard.bool(forKey: "setting_hide_dock") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 NSApplication.shared.setActivationPolicy(.accessory)
             }
         }
     }
-
-    // MARK: - NSMenuDelegate
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         if let item = engineMenuItem {
@@ -139,8 +103,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     @objc func quitApp() {
         NSApplication.shared.terminate(nil)
     }
-    
-    // MARK: - 图标加载
     
     private static let iconSize: CGFloat = 22
     

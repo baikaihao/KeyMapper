@@ -3,68 +3,49 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct BlacklistView: View {
-    @Environment(\.dismiss) var dismiss
     @StateObject var engine = MyEngine.shared
     
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text(NSLocalizedString("app.blacklist", comment: ""))
-                    .font(.headline)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(NSLocalizedString("blacklist.title", comment: ""))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
+                
+                Text(NSLocalizedString("blacklist.desc", comment: ""))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(engine.blacklist, id: \.self) { bundleId in
+                            BlacklistItemRow(bundleId: bundleId) {
+                                engine.blacklist.removeAll { $0 == bundleId }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
                 }
-                .buttonStyle(.plain)
             }
             
             Divider()
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text(NSLocalizedString("app.blacklist.desc", comment: ""))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                if engine.blacklist.isEmpty {
-                    Text(NSLocalizedString("app.blacklist.empty", comment: ""))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 20)
-                } else {
-                    List {
-                        ForEach(engine.blacklist, id: \.self) { bundleId in
-                            HStack {
-                                Text(getAppName(for: bundleId))
-                                    .font(.system(size: 12))
-                                Spacer()
-                                Button(action: {
-                                    engine.blacklist.removeAll { $0 == bundleId }
-                                }) {
-                                    Image(systemName: "trash")
-                                        .font(.caption)
-                                        .foregroundColor(.red.opacity(0.7))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .listStyle(.inset)
-                    .frame(minHeight: 150)
-                }
-            }
-            
             HStack {
                 Spacer()
                 Button(action: addApp) {
-                    Label(NSLocalizedString("app.blacklist.add", comment: ""), systemImage: "plus.circle.fill")
+                    Label(NSLocalizedString("blacklist.add", comment: ""), systemImage: "plus.circle.fill")
+                        .font(.system(size: 13, weight: .medium))
                 }
                 .buttonStyle(.borderedProminent)
             }
+            .padding(20)
+            .background(Color(NSColor.controlBackgroundColor))
         }
-        .padding(20)
-        .frame(width: 350, height: 350)
     }
     
     private func addApp() {
@@ -72,7 +53,7 @@ struct BlacklistView: View {
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.message = NSLocalizedString("app.blacklist.select", comment: "")
+        panel.message = NSLocalizedString("blacklist.select.app", comment: "")
         
         if panel.runModal() == .OK, let url = panel.url {
             if let bundle = Bundle(url: url),
@@ -83,6 +64,59 @@ struct BlacklistView: View {
             }
         }
     }
+}
+
+struct BlacklistItemRow: View {
+    let bundleId: String
+    let onDelete: () -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            if let icon = getAppIcon(for: bundleId) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 36, height: 36)
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.secondary)
+                    .frame(width: 36, height: 36)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(8)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(getAppName(for: bundleId))
+                    .font(.system(size: 13, weight: .medium))
+                Text(bundleId)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12))
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
     
     private func getAppName(for bundleId: String) -> String {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId),
@@ -91,5 +125,12 @@ struct BlacklistView: View {
             return name
         }
         return bundleId
+    }
+    
+    private func getAppIcon(for bundleId: String) -> NSImage? {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return nil
     }
 }
