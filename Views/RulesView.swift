@@ -4,8 +4,11 @@ struct RulesView: View {
     @StateObject var engine = MyEngine.shared
     @State private var tmpTrig: (UInt16, UInt64)?
     @State private var tmpTarg: (UInt16, UInt64)?
+    @State private var tmpNote: String = ""
     @State private var isRec1 = false
     @State private var isRec2 = false
+    @State private var editingNoteId: UUID? = nil
+    @State private var editingNoteText: String = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -30,15 +33,20 @@ struct RulesView: View {
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                         
-                        Text(NSLocalizedString("rules.enable", comment: ""))
+                        Text(NSLocalizedString("rules.note", comment: ""))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                         
+                        Text(NSLocalizedString("rules.enable", comment: ""))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(width: 60, alignment: .center)
+                        
                         Text(NSLocalizedString("rules.actions", comment: ""))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
+                            .frame(width: 50, alignment: .center)
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -57,6 +65,33 @@ struct RulesView: View {
                                 .foregroundColor(.accentColor)
                                 .frame(maxWidth: .infinity, alignment: .center)
                             
+                            if editingNoteId == m.id {
+                                TextField(NSLocalizedString("rules.note.placeholder", comment: ""), text: $editingNoteText)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 12))
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(4)
+                                    .background(Color(NSColor.textBackgroundColor))
+                                    .cornerRadius(4)
+                                    .onSubmit {
+                                        saveNote(for: m.id)
+                                    }
+                                    .onExitCommand {
+                                        editingNoteId = nil
+                                    }
+                            } else {
+                                Text(m.note.isEmpty ? "-" : m.note)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(m.note.isEmpty ? .secondary : .primary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .onTapGesture {
+                                        editingNoteId = m.id
+                                        editingNoteText = m.note
+                                    }
+                            }
+                            
                             Toggle("", isOn: Binding(
                                 get: { m.isOn },
                                 set: { val in
@@ -68,7 +103,7 @@ struct RulesView: View {
                             .toggleStyle(.switch)
                             .scaleEffect(0.7)
                             .labelsHidden()
-                            .frame(maxWidth: .infinity, alignment: .center)
+                            .frame(width: 60, alignment: .center)
                             
                             Button(action: { engine.list.removeAll { $0.id == m.id } }) {
                                 Image(systemName: "trash")
@@ -76,7 +111,7 @@ struct RulesView: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, alignment: .center)
+                            .frame(width: 50, alignment: .center)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -126,6 +161,21 @@ struct RulesView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.top, 16)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("rules.note", comment: ""))
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        
+                        TextField(NSLocalizedString("rules.note.placeholder", comment: ""), text: $tmpNote)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                    }
                 }
                 
                 Button(action: addMapping) {
@@ -147,10 +197,18 @@ struct RulesView: View {
     
     func addMapping() {
         if let a = tmpTrig, let b = tmpTarg {
-            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1))
+            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote))
             tmpTrig = nil
             tmpTarg = nil
+            tmpNote = ""
         }
+    }
+    
+    func saveNote(for id: UUID) {
+        if let idx = engine.list.firstIndex(where: { $0.id == id }) {
+            engine.list[idx].note = editingNoteText
+        }
+        editingNoteId = nil
     }
 }
 
