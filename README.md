@@ -1,7 +1,7 @@
 # KeyMapper for macOS
 
 <p align="center">
-  <img src="other/AppIcon.png" width="100" height="100">
+  <img src="other/AppIcon-Dark.png" width="200" height="200">
 </p>
 
 <p align="center">
