@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("setting_launch_at_login") private var launchAtLogin = false
     @AppStorage("setting_hide_dock") private var hideDock = false
     @StateObject var engine = MyEngine.shared
+    @StateObject var backupManager = BackupManager.shared
     @State private var isRecHotkey = false
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
     
@@ -143,6 +144,107 @@ struct SettingsView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(NSLocalizedString("settings.auto.backup", comment: ""))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 12)
+                    
+                    VStack(spacing: 0) {
+                        SettingsRow(
+                            title: NSLocalizedString("settings.auto.backup.enable", comment: ""),
+                            description: NSLocalizedString("settings.auto.backup.enable.desc", comment: "")
+                        ) {
+                            Toggle("", isOn: $backupManager.autoBackupEnabled)
+                                .toggleStyle(.switch)
+                        }
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.backup.interval", comment: ""),
+                            description: NSLocalizedString("settings.backup.interval.desc", comment: "")
+                        ) {
+                            Picker("", selection: $backupManager.backupIntervalDays) {
+                                ForEach(1...14, id: \.self) { day in
+                                    Text("\(day) \(NSLocalizedString("settings.days", comment: ""))").tag(day)
+                                }
+                            }
+                            .frame(width: 100)
+                            .disabled(!backupManager.autoBackupEnabled)
+                        }
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.max.backups", comment: ""),
+                            description: NSLocalizedString("settings.max.backups.desc", comment: "")
+                        ) {
+                            Picker("", selection: $backupManager.maxBackupCount) {
+                                ForEach(1...20, id: \.self) { count in
+                                    Text("\(count)").tag(count)
+                                }
+                            }
+                            .frame(width: 80)
+                        }
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.backup.path", comment: ""),
+                            description: backupManager.backupPath
+                        ) {
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    backupManager.openBackupFolder()
+                                }) {
+                                    Image(systemName: "folder")
+                                        .font(.system(size: 11))
+                                }
+                                .buttonStyle(.bordered)
+                                .help(NSLocalizedString("settings.open.folder", comment: ""))
+                                
+                                Button(action: {
+                                    if let newPath = backupManager.selectBackupFolder() {
+                                        backupManager.backupPath = newPath
+                                    }
+                                }) {
+                                    Text(NSLocalizedString("settings.select", comment: ""))
+                                        .font(.system(size: 11))
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.leading, 0)
+                        
+                        SettingsRow(
+                            title: NSLocalizedString("settings.last.backup", comment: ""),
+                            description: backupManager.lastBackupDate != nil 
+                                ? formatDate(backupManager.lastBackupDate!) 
+                                : NSLocalizedString("settings.never", comment: "")
+                        ) {
+                            Button(action: {
+                                backupManager.performBackup()
+                            }) {
+                                Text(NSLocalizedString("settings.backup.now", comment: ""))
+                                    .font(.system(size: 11))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                }
             }
             .padding(20)
         }
@@ -205,11 +307,19 @@ struct SettingsView: View {
         }
     }
     
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
     private func exportConfig() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "keymapper_rules.json"
         panel.message = NSLocalizedString("settings.export.message", comment: "")
+        panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
         
         if panel.runModal() == .OK, let url = panel.url {
             let config: [String: Any] = [
@@ -220,7 +330,8 @@ struct SettingsView: View {
                     "fFlags": $0.fFlags,
                     "tCode": $0.tCode,
                     "tFlags": $0.tFlags,
-                    "isOn": $0.isOn
+                    "isOn": $0.isOn,
+                    "note": $0.note
                 ]},
                 "blacklist": engine.blacklist,
                 "pauseHotkey": engine.pauseHotkey.map { [
@@ -252,6 +363,7 @@ struct SettingsView: View {
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.message = NSLocalizedString("settings.import.message", comment: "")
+        panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
         
         if panel.runModal() == .OK, let url = panel.url {
             do {
@@ -270,8 +382,9 @@ struct SettingsView: View {
                               let tFlags = m["tFlags"] as? UInt64 else { return nil }
                         let id = (m["id"] as? String).flatMap { UUID(uuidString: $0) } ?? UUID()
                         let isOn = m["isOn"] as? Bool ?? true
+                        let note = m["note"] as? String ?? ""
                         importedCount += 1
-                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn)
+                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn, note: note)
                     }
                     engine.list = newMappings
                 }

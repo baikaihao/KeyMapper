@@ -7,6 +7,29 @@ struct MyMap: Identifiable, Codable {
     var tCode: UInt16
     var tFlags: UInt64
     var isOn: Bool = true
+    var note: String = ""
+    
+    enum CodingKeys: String, CodingKey {
+        case id, fCode, fFlags, tCode, tFlags, isOn, note
+    }
+    
+    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, isOn: Bool = true, note: String = "") {
+        self.id = id
+        self.fCode = fCode
+        self.fFlags = fFlags
+        self.tCode = tCode
+        self.tFlags = tFlags
+        self.isOn = isOn
+        self.note = note
+    }
+    
+    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, note: String = "") {
+        self.fCode = fCode
+        self.fFlags = fFlags
+        self.tCode = tCode
+        self.tFlags = tFlags
+        self.note = note
+    }
     
     static func getName(_ c: UInt16, _ f: UInt64) -> String {
         var s = " "

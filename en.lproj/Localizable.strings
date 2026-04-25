@@ -14,6 +14,7 @@
 "sidebar.engine.running" = "Engine Running";
 "sidebar.engine.paused" = "Engine Paused";
 "sidebar.engine.waiting" = "Waiting for Auth";
+"sidebar.auth.restart" = "Please restart after authorization";
 "sidebar.pause.hint" = "Press %@ to pause/resume mapping";
 
 /* Rules View */
@@ -27,6 +28,8 @@
 "rules.save" = "Save Rule";
 "rules.recording" = "Recording...";
 "rules.click.record" = "Click to Record";
+"rules.note" = "Note";
+"rules.note.placeholder" = "Add note...";
 
 /* Blacklist View */
 "blacklist.title" = "Blacklist Management";
@@ -63,8 +66,25 @@
 "settings.launch.error.title" = "Cannot Set Launch at Login";
 "settings.launch.error.message" = "Try moving the app to the Applications folder and try again.";
 
+/* Auto Backup */
+"settings.auto.backup" = "Auto Backup";
+"settings.auto.backup.enable" = "Enable Auto Backup";
+"settings.auto.backup.enable.desc" = "Automatically backup mapping rules periodically";
+"settings.backup.interval" = "Backup Interval";
+"settings.backup.interval.desc" = "How often to create automatic backups";
+"settings.max.backups" = "Max Backups";
+"settings.max.backups.desc" = "Maximum number of backup files to keep (oldest will be deleted)";
+"settings.backup.path" = "Backup Path";
+"settings.open.folder" = "Open backup folder in Finder";
+"settings.last.backup" = "Last Backup";
+"settings.never" = "Never";
+"settings.backup.now" = "Backup Now";
+"settings.select" = "Select";
+"settings.days" = "days";
+"settings.backup.select.folder" = "Select a folder for backups";
+
 /* About View */
-"about.version" = "Version 2.0.4 (Build 20260422)";
+"about.version" = "Version 2.1.0 (Build 20260425)";
 "about.check.update" = "Check for Updates";
 "about.license" = "License Agreement";
 "about.support" = "Technical Support";

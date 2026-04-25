@@ -14,6 +14,7 @@
 "sidebar.engine.running" = "引擎已启动";
 "sidebar.engine.paused" = "引擎已暂停";
 "sidebar.engine.waiting" = "等待授权";
+"sidebar.auth.restart" = "请授权后重启";
 "sidebar.pause.hint" = "按下 %@ 暂停/恢复映射";
 
 /* Rules View */
@@ -27,6 +28,8 @@
 "rules.save" = "保存规则";
 "rules.recording" = "正在输入...";
 "rules.click.record" = "点击录制按键";
+"rules.note" = "备注";
+"rules.note.placeholder" = "添加备注...";
 
 /* Blacklist View */
 "blacklist.title" = "黑名单管理";
@@ -63,8 +66,25 @@
 "settings.launch.error.title" = "无法设置开机自启";
 "settings.launch.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
 
+/* Auto Backup */
+"settings.auto.backup" = "自动备份";
+"settings.auto.backup.enable" = "启用自动备份";
+"settings.auto.backup.enable.desc" = "定期自动备份映射规则";
+"settings.backup.interval" = "备份间隔";
+"settings.backup.interval.desc" = "自动备份的时间间隔";
+"settings.max.backups" = "最大备份数";
+"settings.max.backups.desc" = "保留的最大备份文件数量（超过将删除最旧的）";
+"settings.backup.path" = "备份路径";
+"settings.open.folder" = "在 Finder 中打开备份文件夹";
+"settings.last.backup" = "上次备份";
+"settings.never" = "从未备份";
+"settings.backup.now" = "立即备份";
+"settings.select" = "选择";
+"settings.days" = "天";
+"settings.backup.select.folder" = "选择备份文件夹";
+
 /* About View */
-"about.version" = "版本 2.0.4 (Build 20260422)";
+"about.version" = "版本 2.1.0 (Build 20260425)";
 "about.check.update" = "检查更新";
 "about.license" = "许可证协议";
 "about.support" = "技术支持";
