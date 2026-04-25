@@ -8,13 +8,19 @@ struct AboutView: View {
     @State private var updateAlertTitle = ""
     @State private var updateAlertMessage = ""
     @State private var hasUpdate = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    var appIcon: NSImage? {
+        let iconName = colorScheme == .dark ? "AppIcon-Dark" : "AppIcon"
+        return NSImage(contentsOfFile: Bundle.main.path(forResource: iconName, ofType: "png") ?? "")
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
             
             VStack(spacing: 16) {
-                if let appIcon = NSImage(contentsOfFile: Bundle.main.path(forResource: "AppIcon", ofType: "png") ?? "") {
+                if let appIcon = appIcon {
                     Image(nsImage: appIcon)
                         .resizable()
                         .frame(width: 96, height: 96)

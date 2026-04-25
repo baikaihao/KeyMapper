@@ -7,10 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FB0000012F9CB609000564FF /* AppIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = FB0000022F9CB609000564FF /* AppIcon.png */; };
+		FB0000032F9CB609000564FF /* AppIcon-Dark.png in Resources */ = {isa = PBXBuildFile; fileRef = FB0000042F9CB609000564FF /* AppIcon-Dark.png */; };
 		FBA679242F781F1F00E6F969 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6791B2F781F1F00E6F969 /* ContentView.swift */; };
 		FBA679252F781F1F00E6F969 /* MyEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679212F781F1F00E6F969 /* MyEngine.swift */; };
 		FBA679262F781F1F00E6F969 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679162F781F1F00E6F969 /* AppDelegate.swift */; };
-		FBA679272F781F1F00E6F969 /* AppIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = FBA679182F781F1F00E6F969 /* AppIcon.png */; };
 		FBA679282F781F1F00E6F969 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = FBA6791D2F781F1F00E6F969 /* InfoPlist.strings */; };
 		FBA679292F781F1F00E6F969 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FBA679232F781F1F00E6F969 /* Info.plist */; };
 		FBA6792A2F781F1F00E6F969 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FBA679192F781F1F00E6F969 /* Assets.xcassets */; };
@@ -31,12 +32,14 @@
 		FBA6794F2F781F2B00E6F969 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679502F781F2B00E6F969 /* AboutView.swift */; };
 		FBA679512F781F2C00E6F969 /* GitHub_Invertocat_Black.svg in Resources */ = {isa = PBXBuildFile; fileRef = FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */; };
 		FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679542F781F2D00E6F969 /* UpdateService.swift */; };
+		FBA679562F781F2E00E6F969 /* BackupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679572F781F2E00E6F969 /* BackupManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		FB0000022F9CB609000564FF /* AppIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIcon.png; sourceTree = "<group>"; };
+		FB0000042F9CB609000564FF /* AppIcon-Dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark.png"; sourceTree = "<group>"; };
 		FB1430E12F644B6C006D109C /* KeyMapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBA679162F781F1F00E6F969 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		FBA679182F781F1F00E6F969 /* AppIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIcon.png; sourceTree = "<group>"; };
 		FBA679192F781F1F00E6F969 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FBA6791A2F781F1F00E6F969 /* BarIcon.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = BarIcon.svg; sourceTree = "<group>"; };
 		FBA6791B2F781F1F00E6F969 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -59,6 +62,7 @@
 		FBA679502F781F2B00E6F969 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = GitHub_Invertocat_Black.svg; sourceTree = "<group>"; };
 		FBA679542F781F2D00E6F969 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		FBA679572F781F2E00E6F969 /* BackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,8 +93,6 @@
 				FBA679382F781F2900E6F969 /* Views */,
 				FBA6793D2F781F2900E6F969 /* zh-Hans.lproj */,
 				FB1430E22F644B6C006D109C /* Products */,
-				FBA679182F781F1F00E6F969 /* AppIcon.png */,
-				FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */,
 			);
 			sourceTree = "<group>";
 		};
@@ -138,9 +140,12 @@
 		FBA679322F781F2900E6F969 /* other */ = {
 			isa = PBXGroup;
 			children = (
+				FBA679522F781F2C00E6F969 /* GitHub_Invertocat_Black.svg */,
 				FBA679302F781F2900E6F969 /* LICENSE */,
 				FBA679312F781F2900E6F969 /* screenshot.jpg */,
 				FBA6791A2F781F1F00E6F969 /* BarIcon.svg */,
+				FB0000022F9CB609000564FF /* AppIcon.png */,
+				FB0000042F9CB609000564FF /* AppIcon-Dark.png */,
 			);
 			path = other;
 			sourceTree = "<group>";
@@ -171,6 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				FBA679542F781F2D00E6F969 /* UpdateService.swift */,
+				FBA679572F781F2E00E6F969 /* BackupManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -237,7 +243,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FBA679272F781F1F00E6F969 /* AppIcon.png in Resources */,
 				FBA679282F781F1F00E6F969 /* InfoPlist.strings in Resources */,
 				FBA679442F781F2900E6F969 /* LICENSE in Resources */,
 				FBA679452F781F2900E6F969 /* README.md in Resources */,
@@ -249,6 +254,8 @@
 				FBA6792B2F781F1F00E6F969 /* BarIcon.svg in Resources */,
 				FBA6792C2F781F1F00E6F969 /* Localizable.strings in Resources */,
 				FBA679512F781F2C00E6F969 /* GitHub_Invertocat_Black.svg in Resources */,
+				FB0000012F9CB609000564FF /* AppIcon.png in Resources */,
+				FB0000032F9CB609000564FF /* AppIcon-Dark.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,6 +275,7 @@
 				FBA679422F781F2900E6F969 /* KeyLogic.swift in Sources */,
 				FBA679432F781F2900E6F969 /* MyMap.swift in Sources */,
 				FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */,
+				FBA679562F781F2E00E6F969 /* BackupManager.swift in Sources */,
 				FBA679242F781F1F00E6F969 /* ContentView.swift in Sources */,
 				FBA679252F781F1F00E6F969 /* MyEngine.swift in Sources */,
 				FBA679262F781F1F00E6F969 /* AppDelegate.swift in Sources */,
@@ -438,7 +446,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20260422;
+				CURRENT_PROJECT_VERSION = 20260425;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -449,7 +457,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -470,7 +478,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20260422;
+				CURRENT_PROJECT_VERSION = 20260425;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -481,7 +489,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

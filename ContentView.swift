@@ -99,6 +99,13 @@ struct SidebarView: View {
                         }
                     }
                     
+                    if !engine.isActive {
+                        Text(NSLocalizedString("sidebar.auth.restart", comment: ""))
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    
                     if let hk = engine.pauseHotkey {
                         VStack(spacing: 2) {
                             Text(String(format: NSLocalizedString("sidebar.pause.hint", comment: ""), MyMap.getName(hk.0, hk.1)))
