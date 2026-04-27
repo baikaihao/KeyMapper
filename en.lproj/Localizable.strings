@@ -43,8 +43,8 @@
 "settings.data" = "Data & Backup";
 "settings.launch.at.login" = "Launch at Login";
 "settings.launch.at.login.desc" = "Automatically run KeyMapper when you log in";
-"settings.hide.dock.icon" = "Show in Menu Bar";
-"settings.hide.dock.icon.desc" = "Display quick access icon in macOS menu bar";
+"settings.hide.dock.icon" = "Hide Dock Icon";
+"settings.hide.dock.icon.desc" = "Access app only via menu bar icon when hidden";
 "settings.pause.hotkey" = "Pause Hotkey";
 "settings.pause.hotkey.desc" = "Press hotkey to toggle engine pause/resume";
 "settings.waiting.input" = "Waiting for input...";
