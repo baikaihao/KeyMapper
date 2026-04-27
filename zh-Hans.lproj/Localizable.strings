@@ -43,8 +43,8 @@
 "settings.data" = "数据与备份";
 "settings.launch.at.login" = "登录时启动";
 "settings.launch.at.login.desc" = "开启系统后自动运行 KeyMapper";
-"settings.hide.dock.icon" = "在菜单栏显示图标";
-"settings.hide.dock.icon.desc" = "在 macOS 顶部菜单栏显示快速访问图标";
+"settings.hide.dock.icon" = "在程序坞隐藏图标";
+"settings.hide.dock.icon.desc" = "隐藏后仅通过菜单栏图标访问应用";
 "settings.pause.hotkey" = "暂停快捷键";
 "settings.pause.hotkey.desc" = "按下快捷键切换引擎暂停/恢复";
 "settings.waiting.input" = "等待输入...";

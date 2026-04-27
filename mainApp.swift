@@ -15,9 +15,6 @@ struct KeyMapperApp: App {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 750, minHeight: 500)
-                .onAppear {
-                    appDelegate.setupMenuBarIcon()
-                }
         }
         .windowStyle(.automatic)
         .windowToolbarStyle(.unified(showsTitle: true))

@@ -3,14 +3,29 @@ import SwiftUI
 import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
-    static let instance = AppDelegate()
+    static var instance: AppDelegate!
 
     private var statusItem: NSStatusItem?
     private var mainWindow: NSWindow?
     private var engineMenuItem: NSMenuItem?
     private var cancellable: AnyCancellable?
 
-    func setupMenuBarIcon() {
+    override init() {
+        super.init()
+        AppDelegate.instance = self
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        setupMenuBarIcon()
+        _ = MyEngine.shared
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMainWindow()
+        return false
+    }
+
+    private func setupMenuBarIcon() {
         guard statusItem == nil else { return }
 
         let item = NSStatusBar.system.statusItem(withLength: 14)
