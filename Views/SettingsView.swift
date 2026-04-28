@@ -108,7 +108,7 @@ struct SettingsView: View {
                                     .foregroundColor(.green)
                             } else {
                                 Button(NSLocalizedString("settings.enable", comment: "")) {
-                                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                                    requestAccessibilityPermission()
                                 }
                                 .font(.system(size: 11))
                             }
@@ -258,32 +258,22 @@ struct SettingsView: View {
     }
     
     private func toggleLaunchAtLogin(enabled: Bool) {
-        if #available(macOS 13.0, *) {
-            let service = SMAppService.mainApp
-            
-            if enabled {
-                do {
-                    try service.register()
-                } catch {
-                    DispatchQueue.main.async {
-                        self.launchAtLogin = false
-                    }
-                    showLaunchError()
-                }
-            } else {
-                service.unregister { error in
-                    if let error = error {
-                        print("Failed to unregister: \(error.localizedDescription)")
-                    }
-                }
-            }
-        } else {
-            let success = SMLoginItemSetEnabled("bkh.KeyMapper" as CFString, enabled)
-            if !success {
+        let service = SMAppService.mainApp
+
+        if enabled {
+            do {
+                try service.register()
+            } catch {
                 DispatchQueue.main.async {
                     self.launchAtLogin = false
                 }
                 showLaunchError()
+            }
+        } else {
+            service.unregister { error in
+                if let error = error {
+                    print("Failed to unregister: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -298,13 +288,22 @@ struct SettingsView: View {
     }
     
     private func toggleDockIcon(hide: Bool) {
-        let policy: NSApplication.ActivationPolicy = hide ? .accessory : .regular
-        NSApplication.shared.setActivationPolicy(policy)
-        
-        if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
-            window.makeKeyAndOrderFront(nil)
-            NSApplication.shared.activate(ignoringOtherApps: true)
+        NSApp.setActivationPolicy(hide ? .accessory : .regular)
+
+        if !hide {
+            NSApp.activate(ignoringOtherApps: true)
+            if let window = NSApp.windows.first(where: { $0.contentView != nil && !$0.isSheet && !($0 is NSPanel) }) {
+                window.makeKeyAndOrderFront(nil)
+            }
         }
+    }
+
+    private func requestAccessibilityPermission() {
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        let options = [promptKey: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
     
     private func formatDate(_ date: Date) -> String {

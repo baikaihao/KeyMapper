@@ -4,20 +4,19 @@ import AppKit
 @main
 struct KeyMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    init() {
-        let hideDock = UserDefaults.standard.bool(forKey: "setting_hide_dock")
-        let policy: NSApplication.ActivationPolicy = hideDock ? .accessory : .regular
-        NSApplication.shared.setActivationPolicy(policy)
-    }
-    
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .frame(minWidth: 750, minHeight: 500)
+            EmptyView()
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    if let window = NSApp.windows.first(where: { $0.contentView?.subviews.first is NSHostingView<EmptyView> }) {
+                        window.close()
+                    }
+                }
         }
-        .windowStyle(.automatic)
-        .windowToolbarStyle(.unified(showsTitle: true))
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 0, height: 0)
         .commands {
             CommandGroup(replacing: .newItem) { }
         }
