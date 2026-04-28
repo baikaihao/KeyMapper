@@ -6,7 +6,7 @@ enum SidebarItem: String, CaseIterable {
     case blacklist = "blacklist"
     case settings = "settings"
     case about = "about"
-    
+
     var title: String {
         switch self {
         case .rules: return NSLocalizedString("sidebar.rules", comment: "")
@@ -15,7 +15,7 @@ enum SidebarItem: String, CaseIterable {
         case .about: return NSLocalizedString("sidebar.about", comment: "")
         }
     }
-    
+
     var icon: String {
         switch self {
         case .rules: return "keyboard"
@@ -29,7 +29,7 @@ enum SidebarItem: String, CaseIterable {
 struct ContentView: View {
     @StateObject var engine = MyEngine.shared
     @State private var selectedTab: SidebarItem = .rules
-    
+
     var body: some View {
         NavigationSplitView {
             SidebarView(selectedTab: $selectedTab)
@@ -37,34 +37,13 @@ struct ContentView: View {
             DetailView(selectedTab: selectedTab)
         }
         .navigationSplitViewStyle(.balanced)
-        .onAppear {
-            if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
-                window.isReleasedWhenClosed = false
-                AppDelegate.instance.setMainWindow(window)
-                
-                if !engine.isActive {
-                    window.level = .floating
-                }
-            }
-        }
-        .onChange(of: engine.isActive) { isActive in
-            if let window = NSApplication.shared.windows.first(where: { $0.contentView != nil && !$0.isSheet }) {
-                if isActive {
-                    window.level = .normal
-                    NSApp.activate(ignoringOtherApps: true)
-                    window.makeKeyAndOrderFront(nil)
-                } else {
-                    window.level = .floating
-                }
-            }
-        }
     }
 }
 
 struct SidebarView: View {
     @Binding var selectedTab: SidebarItem
     @StateObject var engine = MyEngine.shared
-    
+
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
@@ -72,22 +51,31 @@ struct SidebarView: View {
                     SidebarButton(item: item, selectedTab: $selectedTab, count: item == .blacklist ? engine.blacklist.count : nil)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 8)
             .padding(.top, 12)
-            
+
             Spacer()
-            
+
             VStack(spacing: 0) {
                 Divider()
-                
+
                 VStack(spacing: 12) {
                     HStack {
-                        Text(engine.isActive ? (engine.isPaused ? NSLocalizedString("sidebar.engine.paused", comment: "") : NSLocalizedString("sidebar.engine.running", comment: "")) : NSLocalizedString("sidebar.engine.waiting", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(engine.isActive ? (engine.isPaused ? .orange : .green) : .red)
-                        
+                        if engine.isActive {
+                            Text(engine.isPaused ? NSLocalizedString("sidebar.engine.paused", comment: "") : NSLocalizedString("sidebar.engine.running", comment: ""))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(engine.isPaused ? .orange : .green)
+                        } else {
+                            Button(action: { selectedTab = .settings }) {
+                                Text(NSLocalizedString("sidebar.engine.waiting", comment: ""))
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         Spacer()
-                        
+
                         if engine.isActive {
                             Toggle("", isOn: Binding(
                                 get: { !engine.isPaused },
@@ -98,21 +86,14 @@ struct SidebarView: View {
                             .labelsHidden()
                         }
                     }
-                    
-                    if !engine.isActive {
-                        Text(NSLocalizedString("sidebar.auth.restart", comment: ""))
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    
+
                     if let hk = engine.pauseHotkey {
                         VStack(spacing: 2) {
                             Text(String(format: NSLocalizedString("sidebar.pause.hint", comment: ""), MyMap.getName(hk.0, hk.1)))
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                            
+
                             Text(formatDate())
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
@@ -122,11 +103,10 @@ struct SidebarView: View {
                 }
                 .padding(12)
             }
-            .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(minWidth: 200)
     }
-    
+
     private func formatDate() -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -138,21 +118,21 @@ struct SidebarButton: View {
     let item: SidebarItem
     @Binding var selectedTab: SidebarItem
     let count: Int?
-    
+
     @State private var isHovered = false
-    
+
     var body: some View {
         Button(action: { selectedTab = item }) {
             HStack(spacing: 8) {
                 Image(systemName: item.icon)
                     .font(.system(size: 14))
                     .frame(width: 18)
-                
+
                 Text(item.title)
                     .font(.system(size: 13, weight: .medium))
-                
+
                 Spacer()
-                
+
                 if let count = count, count > 0 {
                     Text("\(count)")
                         .font(.system(size: 10, weight: .medium))
@@ -163,8 +143,9 @@ struct SidebarButton: View {
                         .cornerRadius(4)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(selectedTab == item ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.1) : Color.clear))
@@ -180,7 +161,7 @@ struct SidebarButton: View {
 
 struct DetailView: View {
     let selectedTab: SidebarItem
-    
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -191,9 +172,9 @@ struct DetailView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(Color(NSColor.windowBackgroundColor))
-            
+
             Divider()
-            
+
             Group {
                 switch selectedTab {
                 case .rules:

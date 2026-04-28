@@ -13,7 +13,7 @@
 "sidebar.about" = "About";
 "sidebar.engine.running" = "Engine Running";
 "sidebar.engine.paused" = "Engine Paused";
-"sidebar.engine.waiting" = "Waiting for Auth";
+"sidebar.engine.waiting" = "Go to Settings to Authorize";
 "sidebar.auth.restart" = "Please restart after authorization";
 "sidebar.pause.hint" = "Press %@ to pause/resume mapping";
 
@@ -50,7 +50,7 @@
 "settings.waiting.input" = "Waiting for input...";
 "settings.record" = "Record Hotkey";
 "settings.accessibility" = "Accessibility Permission";
-"settings.accessibility.desc" = "Accessibility permission is required to monitor keyboard events";
+"settings.accessibility.desc" = "Select KeyMapper in the list, click '-' to remove it, then click the button on the right to request authorization again, and finally check the box in System Settings.";
 "settings.authorized" = "Authorized";
 "settings.enable" = "Enable";
 "settings.export.rules" = "Export Mapping Rules";

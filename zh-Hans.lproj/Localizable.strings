@@ -13,7 +13,7 @@
 "sidebar.about" = "关于";
 "sidebar.engine.running" = "引擎已启动";
 "sidebar.engine.paused" = "引擎已暂停";
-"sidebar.engine.waiting" = "等待授权";
+"sidebar.engine.waiting" = "请前往设置授权";
 "sidebar.auth.restart" = "请授权后重启";
 "sidebar.pause.hint" = "按下 %@ 暂停/恢复映射";
 
@@ -50,7 +50,7 @@
 "settings.waiting.input" = "等待输入...";
 "settings.record" = "录制快捷键";
 "settings.accessibility" = "辅助功能权限";
-"settings.accessibility.desc" = "需要辅助功能权限才能监听键盘事件";
+"settings.accessibility.desc" = "请先在列表中选择 KeyMapper，点击「-」删除，再点击右侧按钮重新申请授权，最后在系统设置中勾选授权。";
 "settings.authorized" = "已授权";
 "settings.enable" = "开启";
 "settings.export.rules" = "导出映射规则";
