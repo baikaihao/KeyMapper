@@ -1,12 +1,16 @@
 import SwiftUI
 import AppKit
 
+// MARK: - SidebarItem
+// 侧边栏导航项枚举，定义四个主要页面入口
+
 enum SidebarItem: String, CaseIterable {
     case rules = "rules"
     case blacklist = "blacklist"
     case settings = "settings"
     case about = "about"
 
+    // 侧边栏项的本地化标题
     var title: String {
         switch self {
         case .rules: return NSLocalizedString("sidebar.rules", comment: "")
@@ -16,6 +20,7 @@ enum SidebarItem: String, CaseIterable {
         }
     }
 
+    // 侧边栏项的 SF Symbol 图标名
     var icon: String {
         switch self {
         case .rules: return "keyboard"
@@ -25,6 +30,11 @@ enum SidebarItem: String, CaseIterable {
         }
     }
 }
+
+// MARK: - ContentView
+// 主界面布局，使用 NavigationSplitView 构建侧边栏 + 详情页结构。
+// 侧边栏显示导航按钮、引擎运行状态及暂停开关；
+// 详情页根据选中项切换 RulesView / BlacklistView / SettingsView / AboutView。
 
 struct ContentView: View {
     @StateObject var engine = MyEngine.shared
@@ -40,12 +50,16 @@ struct ContentView: View {
     }
 }
 
+// MARK: - SidebarView
+// 侧边栏视图，包含导航按钮列表和底部引擎状态面板
+
 struct SidebarView: View {
     @Binding var selectedTab: SidebarItem
     @StateObject var engine = MyEngine.shared
 
     var body: some View {
         VStack(spacing: 0) {
+            // 导航按钮区域
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(SidebarItem.allCases, id: \.self) { item in
                     SidebarButton(item: item, selectedTab: $selectedTab, count: item == .blacklist ? engine.blacklist.count : nil)
@@ -56,11 +70,13 @@ struct SidebarView: View {
 
             Spacer()
 
+            // 底部引擎状态面板
             VStack(spacing: 0) {
                 Divider()
 
                 VStack(spacing: 12) {
                     HStack {
+                        // 引擎状态文字：运行中(绿) / 已暂停(橙) / 等待授权(红，可点击跳转设置)
                         if engine.isActive {
                             Text(engine.isPaused ? NSLocalizedString("sidebar.engine.paused", comment: "") : NSLocalizedString("sidebar.engine.running", comment: ""))
                                 .font(.system(size: 11, weight: .medium))
@@ -76,6 +92,7 @@ struct SidebarView: View {
 
                         Spacer()
 
+                        // 引擎暂停/恢复开关（仅引擎激活时显示）
                         if engine.isActive {
                             Toggle("", isOn: Binding(
                                 get: { !engine.isPaused },
@@ -87,6 +104,7 @@ struct SidebarView: View {
                         }
                     }
 
+                    // 暂停热键提示和当前日期
                     if let hk = engine.pauseHotkey {
                         VStack(spacing: 2) {
                             Text(String(format: NSLocalizedString("sidebar.pause.hint", comment: ""), MyMap.getName(hk.0, hk.1)))
@@ -114,9 +132,13 @@ struct SidebarView: View {
     }
 }
 
+// MARK: - SidebarButton
+// 侧边栏导航按钮组件，支持选中高亮、悬停效果和计数徽标
+
 struct SidebarButton: View {
     let item: SidebarItem
     @Binding var selectedTab: SidebarItem
+    // 右侧计数徽标（如黑名单数量），nil 时不显示
     let count: Int?
 
     @State private var isHovered = false
@@ -133,6 +155,7 @@ struct SidebarButton: View {
 
                 Spacer()
 
+                // 计数徽标
                 if let count = count, count > 0 {
                     Text("\(count)")
                         .font(.system(size: 10, weight: .medium))
@@ -159,11 +182,15 @@ struct SidebarButton: View {
     }
 }
 
+// MARK: - DetailView
+// 详情页视图，根据选中的侧边栏项切换对应的子视图
+
 struct DetailView: View {
     let selectedTab: SidebarItem
 
     var body: some View {
         VStack(spacing: 0) {
+            // 页面标题栏
             HStack {
                 Text(selectedTab.title)
                     .font(.system(size: 17, weight: .semibold))
@@ -175,6 +202,7 @@ struct DetailView: View {
 
             Divider()
 
+            // 根据 selectedTab 切换子视图
             Group {
                 switch selectedTab {
                 case .rules:

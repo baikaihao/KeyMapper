@@ -3,23 +3,33 @@ import AppKit
 import ServiceManagement
 import UniformTypeIdentifiers
 
+// MARK: - SettingsView
+// 设置页面，包含四个设置区块：
+// 1. 通用设置——开机自启（SMAppService）、隐藏 Dock 图标
+// 2. 映射设置——暂停热键录制/重置、辅助功能权限检查
+// 3. 数据管理——导出/导入规则配置（JSON 格式）
+// 4. 自动备份——启用/间隔/数量上限/路径/立即备份
+
 struct SettingsView: View {
     @AppStorage("setting_launch_at_login") private var launchAtLogin = false
     @AppStorage("setting_hide_dock") private var hideDock = false
     @StateObject var engine = MyEngine.shared
     @StateObject var backupManager = BackupManager.shared
+    // 是否正在录制暂停热键
     @State private var isRecHotkey = false
+    // 临时存储录制的暂停热键
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // MARK: 通用设置区块
                 VStack(alignment: .leading, spacing: 0) {
                     Text(NSLocalizedString("settings.general", comment: ""))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 12)
-                    
+
                     VStack(spacing: 0) {
                         SettingsRow(
                             title: NSLocalizedString("settings.launch.at.login", comment: ""),
@@ -31,10 +41,10 @@ struct SettingsView: View {
                                     toggleLaunchAtLogin(enabled: newValue)
                                 }
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
                         SettingsRow(
                             title: NSLocalizedString("settings.hide.dock.icon", comment: ""),
                             description: NSLocalizedString("settings.hide.dock.icon.desc", comment: "")
@@ -53,14 +63,16 @@ struct SettingsView: View {
                             .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                     )
                 }
-                
+
+                // MARK: 映射设置区块
                 VStack(alignment: .leading, spacing: 0) {
                     Text(NSLocalizedString("settings.mapping", comment: ""))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 12)
-                    
+
                     VStack(spacing: 0) {
+                        // 暂停热键设置：支持录制新热键和重置为默认值
                         SettingsRow(
                             title: NSLocalizedString("settings.pause.hotkey", comment: ""),
                             description: NSLocalizedString("settings.pause.hotkey.desc", comment: "")
@@ -74,7 +86,8 @@ struct SettingsView: View {
                                     Text(MyMap.getName(hk.0, hk.1))
                                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                                         .foregroundColor(.accentColor)
-                                    
+
+                                    // 重置为默认暂停热键 Z+Shift+Cmd
                                     Button(action: {
                                         engine.pauseHotkey = (keyCode: 6, flags: 0x120000)
                                     }) {
@@ -94,10 +107,11 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
+                        // 辅助功能权限状态与授权入口
                         SettingsRow(
                             title: NSLocalizedString("settings.accessibility", comment: ""),
                             description: NSLocalizedString("settings.accessibility.desc", comment: "")
@@ -121,13 +135,14 @@ struct SettingsView: View {
                             .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                     )
                 }
-                
+
+                // MARK: 数据管理区块
                 VStack(alignment: .leading, spacing: 0) {
                     Text(NSLocalizedString("settings.data", comment: ""))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 12)
-                    
+
                     HStack(spacing: 12) {
                         Button(action: exportConfig) {
                             Label(NSLocalizedString("settings.export.rules", comment: ""), systemImage: "arrow.down.circle")
@@ -135,7 +150,7 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        
+
                         Button(action: importConfig) {
                             Label(NSLocalizedString("settings.import", comment: ""), systemImage: "arrow.up.circle")
                                 .font(.system(size: 13, weight: .medium))
@@ -144,13 +159,14 @@ struct SettingsView: View {
                         .buttonStyle(.bordered)
                     }
                 }
-                
+
+                // MARK: 自动备份区块
                 VStack(alignment: .leading, spacing: 0) {
                     Text(NSLocalizedString("settings.auto.backup", comment: ""))
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 12)
-                    
+
                     VStack(spacing: 0) {
                         SettingsRow(
                             title: NSLocalizedString("settings.auto.backup.enable", comment: ""),
@@ -159,10 +175,10 @@ struct SettingsView: View {
                             Toggle("", isOn: $backupManager.autoBackupEnabled)
                                 .toggleStyle(.switch)
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
                         SettingsRow(
                             title: NSLocalizedString("settings.backup.interval", comment: ""),
                             description: NSLocalizedString("settings.backup.interval.desc", comment: "")
@@ -175,10 +191,10 @@ struct SettingsView: View {
                             .frame(width: 100)
                             .disabled(!backupManager.autoBackupEnabled)
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
                         SettingsRow(
                             title: NSLocalizedString("settings.max.backups", comment: ""),
                             description: NSLocalizedString("settings.max.backups.desc", comment: "")
@@ -190,15 +206,16 @@ struct SettingsView: View {
                             }
                             .frame(width: 80)
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
                         SettingsRow(
                             title: NSLocalizedString("settings.backup.path", comment: ""),
                             description: backupManager.backupPath
                         ) {
                             HStack(spacing: 8) {
+                                // 在 Finder 中打开备份文件夹
                                 Button(action: {
                                     backupManager.openBackupFolder()
                                 }) {
@@ -207,7 +224,8 @@ struct SettingsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .help(NSLocalizedString("settings.open.folder", comment: ""))
-                                
+
+                                // 选择新的备份文件夹
                                 Button(action: {
                                     if let newPath = backupManager.selectBackupFolder() {
                                         backupManager.backupPath = newPath
@@ -219,14 +237,14 @@ struct SettingsView: View {
                                 .buttonStyle(.bordered)
                             }
                         }
-                        
+
                         Divider()
                             .padding(.leading, 0)
-                        
+
                         SettingsRow(
                             title: NSLocalizedString("settings.last.backup", comment: ""),
-                            description: backupManager.lastBackupDate != nil 
-                                ? formatDate(backupManager.lastBackupDate!) 
+                            description: backupManager.lastBackupDate != nil
+                                ? formatDate(backupManager.lastBackupDate!)
                                 : NSLocalizedString("settings.never", comment: "")
                         ) {
                             Button(action: {
@@ -248,15 +266,33 @@ struct SettingsView: View {
             }
             .padding(20)
         }
+        // 嵌入 KeyLogic 以捕获暂停热键录制
         .background(KeyLogic(r1: $isRecHotkey, r2: .constant(false), t1: $tmpHotkey, t2: .constant(nil)))
         .onChange(of: isRecHotkey) { newValue in
+            // 录制结束后，将捕获的热键设置为暂停热键
             if !newValue, let hk = tmpHotkey {
                 engine.pauseHotkey = hk
                 tmpHotkey = nil
             }
         }
+        .onAppear {
+            syncLaunchAtLoginState()
+        }
     }
-    
+
+    // MARK: - 通用设置方法
+
+    // 读取系统实际登录项状态，修正 UserDefaults 中的设置值
+    // 确保 Toggle 显示的状态与 macOS 系统设置一致
+    private func syncLaunchAtLoginState() {
+        let service = SMAppService.mainApp
+        let systemEnabled = (service.status == .enabled)
+        if launchAtLogin != systemEnabled {
+            launchAtLogin = systemEnabled
+        }
+    }
+
+    // 切换开机自启：使用 SMAppService 注册/注销登录项
     private func toggleLaunchAtLogin(enabled: Bool) {
         let service = SMAppService.mainApp
 
@@ -277,7 +313,8 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    // 显示开机自启注册失败的错误提示
     private func showLaunchError() {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString("settings.launch.error.title", comment: "")
@@ -286,7 +323,10 @@ struct SettingsView: View {
         alert.addButton(withTitle: NSLocalizedString("ok", comment: ""))
         alert.runModal()
     }
-    
+
+    // 切换 Dock 图标显示：
+    // .accessory: 隐藏 Dock 图标，仅菜单栏
+    // .regular: 显示 Dock 图标
     private func toggleDockIcon(hide: Bool) {
         NSApp.setActivationPolicy(hide ? .accessory : .regular)
 
@@ -298,6 +338,9 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - 辅助功能权限
+
+    // 请求辅助功能权限：弹出系统授权对话框并打开系统偏好设置
     private func requestAccessibilityPermission() {
         let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         let options = [promptKey: true] as CFDictionary
@@ -305,21 +348,26 @@ struct SettingsView: View {
 
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
-    
+
+    // MARK: - 日期格式化
+
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
-    
+
+    // MARK: - 导出配置
+
+    // 将当前映射规则、黑名单、暂停热键导出为 JSON 文件
     private func exportConfig() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "keymapper_rules.json"
         panel.message = NSLocalizedString("settings.export.message", comment: "")
         panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
-        
+
         if panel.runModal() == .OK, let url = panel.url {
             let config: [String: Any] = [
                 "version": "2.0",
@@ -338,7 +386,7 @@ struct SettingsView: View {
                     "flags": $0.flags
                 ]} as Any
             ]
-            
+
             do {
                 let data = try JSONSerialization.data(withJSONObject: config, options: .prettyPrinted)
                 try data.write(to: url)
@@ -356,23 +404,27 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    // MARK: - 导入配置
+
+    // 从 JSON 文件导入映射规则、黑名单和暂停热键，覆盖当前配置
     private func importConfig() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.message = NSLocalizedString("settings.import.message", comment: "")
         panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
-        
+
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 let data = try Data(contentsOf: url)
                 guard let config = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw NSError(domain: "KeyMapper", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
                 }
-                
+
                 var importedCount = 0
-                
+
+                // 解析映射规则
                 if let mappings = config["mappings"] as? [[String: Any]] {
                     let newMappings = mappings.compactMap { m -> MyMap? in
                         guard let fCode = m["fCode"] as? UInt16,
@@ -387,17 +439,19 @@ struct SettingsView: View {
                     }
                     engine.list = newMappings
                 }
-                
+
+                // 解析黑名单
                 if let blacklist = config["blacklist"] as? [String] {
                     engine.blacklist = blacklist
                 }
-                
+
+                // 解析暂停热键
                 if let hotkey = config["pauseHotkey"] as? [String: Any],
                    let keyCode = hotkey["keyCode"] as? UInt16,
                    let flags = hotkey["flags"] as? UInt64 {
                     engine.pauseHotkey = (keyCode: keyCode, flags: flags)
                 }
-                
+
                 showAlert(
                     title: NSLocalizedString("settings.import.success.title", comment: ""),
                     message: String(format: NSLocalizedString("settings.import.success.message", comment: ""), importedCount),
@@ -412,7 +466,10 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    // MARK: - 通用弹窗
+
+    // 显示模态警告/信息弹窗
     private func showAlert(title: String, message: String, style: NSAlert.Style) {
         let alert = NSAlert()
         alert.messageText = title
@@ -423,11 +480,17 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - SettingsRow
+// 通用设置行组件，左侧标题+描述，右侧自定义内容
+
 struct SettingsRow<Content: View>: View {
+    // 设置项标题
     let title: String
+    // 设置项描述文字
     let description: String
+    // 右侧自定义内容（如 Toggle、Picker、Button 等）
     @ViewBuilder let content: Content
-    
+
     var body: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
@@ -437,9 +500,9 @@ struct SettingsRow<Content: View>: View {
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
+
             content
         }
         .padding(12)
