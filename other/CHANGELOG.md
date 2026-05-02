@@ -2,6 +2,54 @@
 
 All notable changes to KeyMapper will be documented in this file.
 
+## [2.2.0] - 2026-05-01
+
+### Added
+- **按键自定义选择器** / **Key Custom Picker**
+  - 提供原生风格的可视化按键选择界面，支持 QWERTY 键盘布局按键网格
+  - Native-style visual key picker with QWERTY keyboard layout grid
+  - 支持两级按键选择：主按键 + 辅助修饰键（⌘⌃⌥⇧），辅助键可动态扩展任意数量
+  - Two-level key selection: main key + auxiliary modifiers, dynamically extensible
+  - 选择器状态与当前按键组合实时同步，打开时准确显示对应选项
+  - Picker state syncs with current key combination, displays accurate options on open
+- **规则按键编辑功能** / **Rule Key Editing**
+  - 规则列表中每条规则的源键和目标键旁新增编辑按钮，可直接修改已保存的按键组合
+  - Edit buttons next to source and target keys in rules list for direct key modification
+  - 修改完成后实时更新规则信息显示
+  - Real-time rule display update after modification
+- **登录时启动状态同步** / **Launch at Login State Sync**
+  - App 启动时自动读取系统 SMAppService 实际状态，修正 UserDefaults 中的设置值
+  - App reads actual SMAppService system status on launch and corrects UserDefaults
+  - 解决因数据迁移、iCloud 同步等原因导致的设置与系统状态不一致问题
+  - Resolves inconsistency between settings and system state caused by data migration or iCloud sync
+
+### Changed
+- **录制兼容性优化** / **Recording Compatibility**
+  - 重写按键录制逻辑，彻底消除旧版本 macOS 上录制时的系统蜂鸣声
+  - Rewrote key recording logic to eliminate system beep sounds on older macOS versions
+  - 优化 NSView 响应链处理，确保录制框正确获取第一响应者状态
+  - Optimized NSView responder chain to ensure recording box properly acquires first responder status
+- **登录自启静默启动** / **Silent Launch at Login**
+  - 勾选"登录时启动"后，开机自启时不再弹出应用窗口，App 静默运行在菜单栏
+  - With "Launch at Login" enabled, app no longer shows window on startup, runs silently in menu bar
+  - 用户可通过菜单栏图标随时手动打开窗口
+  - Users can manually open window via menu bar icon at any time
+- **代码注释规范化** / **Code Documentation**
+  - 为所有源代码文件添加标准化注释，提升代码可读性和可维护性
+  - Added standardized comments to all source code files for improved readability
+
+### Fixed
+- **按键选择器关闭问题** / **Key Picker Close Issue**
+  - 修复新增映射时按键选择器点击确认后未自动关闭的问题
+  - Fixed key picker not closing automatically after confirming when adding new mapping
+- **按键选择器状态重置** / **Key Picker State Reset**
+  - 修复录制栏内容为空时按键选择器仍保留上一次选择结果的问题
+  - Fixed key picker retaining previous selection when recording area is empty
+  - 选择器现在在录制栏为空时自动重置为初始无选中状态
+  - Picker now resets to empty state when recording area is cleared
+
+---
+
 ## [2.1.2] - 2026-04-28
 
 ### Added
@@ -95,6 +143,7 @@ All notable changes to KeyMapper will be documented in this file.
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 2.2.0 | 2026-05-01 | 新增按键选择器与规则编辑，修复录制兼容性与登录自启问题 / Added key picker and rule editing, fixed recording compatibility and launch at login issues |
 | 2.1.2 | 2026-04-28 | 修复开机启动窗口问题，优化授权引导 / Fixed launch at login window issues, improved authorization guidance |
 | 2.1.0 | 2026-04-25 | 新增规则备注、自动备份、深色模式图标支持 / Added rule notes, auto backup, dark mode icons |
 | 2.0.1 | 2026-04-22 | 全新界面重构，新增检查更新、导入导出功能 / New UI, update checker, import/export |
