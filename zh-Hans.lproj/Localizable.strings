@@ -30,6 +30,7 @@
 "rules.click.record" = "点击录制按键";
 "rules.note" = "备注";
 "rules.note.placeholder" = "添加备注...";
+"rules.edit.key" = "修改按键";
 
 /* Blacklist View */
 "blacklist.title" = "黑名单管理";
@@ -121,6 +122,18 @@
 "app.blacklist.empty" = "暂无黑名单应用";
 "app.blacklist.add" = "添加应用";
 "app.blacklist.select" = "选择要添加到黑名单的应用";
+
+/* Key Picker */
+"keypicker.title" = "按键选择器";
+"keypicker.modifiers" = "修饰键";
+"keypicker.add.modifier" = "添加修饰键";
+"keypicker.layer" = "层级";
+"keypicker.key" = "按键";
+"keypicker.preview" = "预览：";
+"keypicker.no.selection" = "未选择按键";
+"keypicker.confirm" = "确认";
+"keypicker.cancel" = "取消";
+"rules.pick.key" = "可视化选择按键";
 
 /* Launch at Login Error */
 "launch.at.login.error.title" = "无法设置开机自启";

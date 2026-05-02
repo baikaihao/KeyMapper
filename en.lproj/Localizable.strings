@@ -30,6 +30,7 @@
 "rules.click.record" = "Click to Record";
 "rules.note" = "Note";
 "rules.note.placeholder" = "Add note...";
+"rules.edit.key" = "Edit Key";
 
 /* Blacklist View */
 "blacklist.title" = "Blacklist Management";
@@ -121,6 +122,18 @@
 "app.blacklist.empty" = "No apps in blacklist";
 "app.blacklist.add" = "Add App";
 "app.blacklist.select" = "Select an app to add to blacklist";
+
+/* Key Picker */
+"keypicker.title" = "Key Selector";
+"keypicker.modifiers" = "Modifier Keys";
+"keypicker.add.modifier" = "Add Modifier";
+"keypicker.layer" = "Layer";
+"keypicker.key" = "Key";
+"keypicker.preview" = "Preview:";
+"keypicker.no.selection" = "No key selected";
+"keypicker.confirm" = "Confirm";
+"keypicker.cancel" = "Cancel";
+"rules.pick.key" = "Select key visually";
 
 /* Launch at Login Error */
 "launch.at.login.error.title" = "Cannot Set Launch at Login";
