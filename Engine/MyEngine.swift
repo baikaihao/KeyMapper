@@ -2,6 +2,10 @@ import SwiftUI
 import Combine
 import AppKit
 
+extension Notification.Name {
+    static let mappingTriggered = Notification.Name("mappingTriggered")
+}
+
 // MARK: - MyEngine
 // 核心键盘事件拦截与映射引擎（单例）。
 // 这是整个 KeyMapper 最关键的组件，负责在系统级别拦截键盘事件并进行映射。
@@ -21,15 +25,11 @@ class MyEngine: ObservableObject {
     // MARK: - 发布属性（UI 绑定）
 
     // 映射规则列表，变更时自动持久化
-    @Published var list: [MyMap] = [] { didSet { save() } }
-    // 引擎是否已激活（辅助功能权限已授权且 CGEventTap 创建成功）
+    @Published var list: [MyMap] = [] { didSet { MappingStore.shared.saveList(list) } }
     @Published var isActive: Bool = false
-    // 引擎是否暂停（暂停时不做任何映射）
     @Published var isPaused: Bool = false
-    // 暂停/恢复热键，默认 Z+Shift+Cmd（keyCode=6, flags=0x120000）
-    @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil { didSet { savePauseHotkey() } }
-    // 黑名单应用 Bundle ID 列表，前台应用在黑名单中时不做映射
-    @Published var blacklist: [String] = [] { didSet { saveBlacklist() } }
+    @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil { didSet { MappingStore.shared.savePauseHotkey(pauseHotkey) } }
+    @Published var blacklist: [String] = [] { didSet { MappingStore.shared.saveBlacklist(blacklist) } }
     // 是否处于按键录制模式（录制期间不拦截按键，让事件正常传递）
     @Published var isRecording: Bool = false
 
@@ -51,9 +51,9 @@ class MyEngine: ObservableObject {
     // MARK: - 初始化
 
     init() {
-        load()
-        loadPauseHotkey()
-        loadBlacklist()
+        list = MappingStore.shared.loadList()
+        pauseHotkey = MappingStore.shared.loadPauseHotkey()
+        blacklist = MappingStore.shared.loadBlacklist()
         checkAccessibility()
         start()
     }
@@ -80,65 +80,6 @@ class MyEngine: ObservableObject {
         }
     }
 
-    // MARK: - 映射规则持久化
-
-    // 将映射规则列表编码为 JSON 并保存到 UserDefaults
-    func save() {
-        if let data = try? JSONEncoder().encode(list) {
-            UserDefaults.standard.set(data, forKey: "saved_maps")
-        }
-    }
-
-    // 从 UserDefaults 加载映射规则列表
-    func load() {
-        if let data = UserDefaults.standard.data(forKey: "saved_maps"),
-           let decoded = try? JSONDecoder().decode([MyMap].self, from: data) {
-            self.list = decoded
-        }
-    }
-
-    // MARK: - 暂停热键持久化
-
-    // 将暂停热键保存为 JSON 字典到 UserDefaults
-    func savePauseHotkey() {
-        if let hk = pauseHotkey {
-            let dict: [String: Any] = ["keyCode": Int(hk.keyCode), "flags": Int(hk.flags)]
-            if let data = try? JSONSerialization.data(withJSONObject: dict) {
-                UserDefaults.standard.set(data, forKey: "setting_pause_hotkey")
-            }
-        } else {
-            UserDefaults.standard.removeObject(forKey: "setting_pause_hotkey")
-        }
-    }
-
-    // 从 UserDefaults 加载暂停热键，未设置时使用默认值 Z+Shift+Cmd
-    func loadPauseHotkey() {
-        if let data = UserDefaults.standard.data(forKey: "setting_pause_hotkey"),
-           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let keyCode = dict["keyCode"] as? Int,
-           let flags = dict["flags"] as? Int {
-            self.pauseHotkey = (keyCode: UInt16(keyCode), flags: UInt64(flags))
-        } else {
-            // 默认暂停热键：Z + Shift + Command
-            self.pauseHotkey = (keyCode: 6, flags: 0x120000)
-        }
-    }
-
-    // MARK: - 黑名单持久化
-
-    func saveBlacklist() {
-        if let data = try? JSONEncoder().encode(blacklist) {
-            UserDefaults.standard.set(data, forKey: "setting_blacklist")
-        }
-    }
-
-    func loadBlacklist() {
-        if let data = UserDefaults.standard.data(forKey: "setting_blacklist"),
-           let decoded = try? JSONDecoder().decode([String].self, from: data) {
-            self.blacklist = decoded
-        }
-    }
-
     // MARK: - 暂停/恢复控制
 
     func pause() {
@@ -157,23 +98,44 @@ class MyEngine: ObservableObject {
         }
     }
 
+    func buildConfigDict() -> [String: Any] {
+        [
+            "version": "2.0",
+            "mappings": list.map { [
+                "id": $0.id.uuidString,
+                "fCode": $0.fCode,
+                "fFlags": $0.fFlags,
+                "tCode": $0.tCode,
+                "tFlags": $0.tFlags,
+                "isOn": $0.isOn,
+                "note": $0.note
+            ]},
+            "blacklist": blacklist,
+            "pauseHotkey": pauseHotkey.map { [
+                "keyCode": $0.keyCode,
+                "flags": $0.flags
+            ]} as Any
+        ]
+    }
+
     // MARK: - 核心事件监听
 
-    // 创建 CGEventTap 并启动键盘事件监听。
-    // 事件处理回调中的优先级链：
-    //   1. 自身发送的事件（eventSourceUserData == 12345）→ 直接放行，防止无限循环
-    //   2. 录制模式 → 放行，让按键事件正常传递给 UI
-    //   3. 自身应用 → 放行，避免拦截自身窗口的按键
-    //   4. 暂停热键 → 拦截并切换暂停状态
-    //   5. 暂停状态 → 放行所有事件
-    //   6. 黑名单应用 → 放行
-    //   7. 映射规则匹配 → 单映射直接替换 / 多映射弹出轮盘
-    //
-    // 多映射处理流程：
-    //   - keyDown 时：匹配到多个映射 → 吞掉原始事件，弹出径向轮盘，等待用户选择
-    //   - keyUp 时：用户已通过鼠标选择目标 → 发送选中映射的 keyDown+keyUp
-    //   - 若 keyUp 时用户未选择 → 默认使用第一个映射
-    //   - 若 keyDown 后用户按了其他键 → 取消轮盘，使用第一个映射并发送
+    private static let eventTag: Int64 = 12345
+
+    private static func postMappedKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
+            e.flags = CGEventFlags(rawValue: flags)
+            e.setIntegerValueField(.eventSourceUserData, value: eventTag)
+            e.tapPostEvent(proxy)
+        }
+    }
+
+    private static func postMappedKeyPair(proxy: CGEventTapProxy, code: UInt16, flags: UInt64) {
+        postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: true)
+        postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: false)
+    }
+
     func start() {
         retryTimer?.invalidate()
         let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
@@ -181,28 +143,22 @@ class MyEngine: ObservableObject {
             let c = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             let f = event.flags.rawValue
 
-            // [1] 自身发送的映射事件，标记 eventSourceUserData=12345，直接放行防止无限循环
-            if event.getIntegerValueField(.eventSourceUserData) == 12345 {
+            if event.getIntegerValueField(.eventSourceUserData) == MyEngine.eventTag {
                 return Unmanaged.passRetained(event)
             }
 
-            // [2] 录制模式下放行所有按键，让 UI 正常接收
             if MyEngine.shared.isRecording {
                 return Unmanaged.passRetained(event)
             }
 
-            // [3] 自身应用前台的按键不做拦截
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                let bundleId = frontApp.bundleIdentifier,
                bundleId == MyEngine.shared.myBundleId {
                 return Unmanaged.passRetained(event)
             }
 
-            // [4] 检测暂停热键（仅 keyDown 时触发）
             if let hk = MyEngine.shared.pauseHotkey {
-                // modifierMask: 仅检查 Ctrl/Alt/Shift/Cmd 四个修饰键
-                let modifierMask: UInt64 = 0x40000 | 0x80000 | 0x20000 | 0x100000
-                if type == .keyDown && c == hk.keyCode && (f & modifierMask) == (hk.flags & modifierMask) {
+                if type == .keyDown && c == hk.keyCode && (f & ModifierKey.allMask) == (hk.flags & ModifierKey.allMask) {
                     DispatchQueue.main.async {
                         MyEngine.shared.toggle()
                     }
@@ -210,118 +166,29 @@ class MyEngine: ObservableObject {
                 }
             }
 
-            // [5] 暂停状态下放行所有事件
             if MyEngine.shared.isPaused {
                 return Unmanaged.passRetained(event)
             }
 
-            // [6] 黑名单应用前台时放行
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                let bundleId = frontApp.bundleIdentifier,
                MyEngine.shared.blacklist.contains(bundleId) {
                 return Unmanaged.passRetained(event)
             }
 
-            // 提取当前修饰键状态（仅 Ctrl/Alt/Shift/Cmd）
-            let modifierMask: UInt64 = 0x40000 | 0x80000 | 0x20000 | 0x100000
-            let currentModifiers = f & modifierMask
+            let currentModifiers = f & ModifierKey.allMask
 
-            // [7] 映射规则匹配与处理
             if type == .keyDown {
-                // Esc 键取消径向轮盘
-                if c == 53 && MyEngine.shared.isWheelShowing {
-                    RadialWheelManager.shared.cancel()
-                    MyEngine.shared.multiMappingState = nil
-                    MyEngine.shared.isWheelShowing = false
-                    return nil
-                }
-
-                // 多映射等待期间，忽略自动重复按键
-                if MyEngine.shared.multiMappingState != nil && event.getIntegerValueField(.keyboardEventAutorepeat) == 1 {
-                    return nil
-                }
-
-                // 多映射等待期间按了其他键：取消轮盘，使用第一个映射并发送
-                if let state = MyEngine.shared.multiMappingState, state.keyCode != c {
-                    if MyEngine.shared.isWheelShowing {
-                        RadialWheelManager.shared.hide()
-                        MyEngine.shared.isWheelShowing = false
-                    }
-                    let m = state.matches[0]
-                    let internalSource = CGEventSource(stateID: .combinedSessionState)
-                    if let keyDown = CGEvent(keyboardEventSource: internalSource, virtualKey: m.tCode, keyDown: true) {
-                        keyDown.flags = CGEventFlags(rawValue: m.tFlags)
-                        keyDown.setIntegerValueField(.eventSourceUserData, value: 12345)
-                        keyDown.tapPostEvent(proxy)
-                    }
-                    if let keyUp = CGEvent(keyboardEventSource: internalSource, virtualKey: m.tCode, keyDown: false) {
-                        keyUp.flags = CGEventFlags(rawValue: m.tFlags)
-                        keyUp.setIntegerValueField(.eventSourceUserData, value: 12345)
-                        keyUp.tapPostEvent(proxy)
-                    }
-                    MyEngine.shared.multiMappingState = nil
-                }
-
-                // 查找当前按键匹配的映射规则（启用 + keyCode + 修饰键均匹配）
-                let matches = MyEngine.shared.list.filter {
-                    $0.isOn && $0.fCode == c && ($0.fFlags & modifierMask) == currentModifiers
-                }
-
-                if matches.count > 1 {
-                    // 多映射：暂存状态，弹出径向轮盘等待用户选择
-                    MyEngine.shared.multiMappingState = (c, currentModifiers, matches)
-                    MyEngine.shared.isWheelShowing = true
-                    let mouseLocation = NSEvent.mouseLocation
-                    RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
-                    return nil
-                } else if let m = matches.first {
-                    // 单映射：直接构造并发送映射后的按键事件
-                    let internalSource = CGEventSource(stateID: .combinedSessionState)
-                    if let e = CGEvent(keyboardEventSource: internalSource, virtualKey: m.tCode, keyDown: type == .keyDown) {
-                        e.flags = CGEventFlags(rawValue: m.tFlags)
-                        e.setIntegerValueField(.eventSourceUserData, value: 12345)
-                        e.tapPostEvent(proxy)
-                        return nil
-                    }
-                }
+                return MyEngine.shared.handleKeyDown(proxy: proxy, keyCode: c, modifiers: currentModifiers, isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1, originalEvent: event)
             }
 
             if type == .keyUp {
-                // 多映射状态下原始按键释放：用户已通过鼠标选择目标，发送选中映射的按键
-                if let state = MyEngine.shared.multiMappingState, state.keyCode == c {
-                    let mapping: MyMap
-                    if MyEngine.shared.isWheelShowing {
-                        // 轮盘仍在显示，取用户选中的映射；未选中则默认第一个
-                        mapping = RadialWheelManager.shared.getSelectedMapping() ?? state.matches[0]
-                        RadialWheelManager.shared.hide()
-                        MyEngine.shared.isWheelShowing = false
-                    } else {
-                        // 轮盘已消失（用户已选择），使用第一个映射
-                        mapping = state.matches[0]
-                    }
-
-                    // 发送映射后的 keyDown + keyUp 组合
-                    let internalSource = CGEventSource(stateID: .combinedSessionState)
-                    if let keyDown = CGEvent(keyboardEventSource: internalSource, virtualKey: mapping.tCode, keyDown: true) {
-                        keyDown.flags = CGEventFlags(rawValue: mapping.tFlags)
-                        keyDown.setIntegerValueField(.eventSourceUserData, value: 12345)
-                        keyDown.tapPostEvent(proxy)
-                    }
-                    if let keyUp = CGEvent(keyboardEventSource: internalSource, virtualKey: mapping.tCode, keyDown: false) {
-                        keyUp.flags = CGEventFlags(rawValue: mapping.tFlags)
-                        keyUp.setIntegerValueField(.eventSourceUserData, value: 12345)
-                        keyUp.tapPostEvent(proxy)
-                    }
-
-                    MyEngine.shared.multiMappingState = nil
-                    return nil
-                }
+                return MyEngine.shared.handleKeyUp(proxy: proxy, keyCode: c, originalEvent: event)
             }
 
             return Unmanaged.passRetained(event)
         }
 
-        // 创建 CGEventTap：在会话级别拦截键盘事件，插入位置为头部（最先处理）
         tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
@@ -332,17 +199,89 @@ class MyEngine: ObservableObject {
         )
 
         if let t = tap {
-            // 将事件源添加到主线程 RunLoop，使回调在主线程执行
             let s = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, t, 0)
             CFRunLoopAddSource(CFRunLoopGetMain(), s, .commonModes)
             CGEvent.tapEnable(tap: t, enable: true)
             self.isActive = true
         } else {
-            // 创建失败（通常因权限不足），2 秒后重试
             self.isActive = false
             retryTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
                 self?.start()
             }
         }
+    }
+
+    private func handleKeyDown(proxy: CGEventTapProxy, keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+        if keyCode == 53 && isWheelShowing {
+            RadialWheelManager.shared.cancel()
+            multiMappingState = nil
+            isWheelShowing = false
+            return nil
+        }
+
+        if multiMappingState != nil && isAutorepeat {
+            return nil
+        }
+
+        if let state = multiMappingState, state.keyCode != keyCode {
+            if isWheelShowing {
+                RadialWheelManager.shared.hide()
+                isWheelShowing = false
+            }
+            let m = state.matches[0]
+            Self.postMappedKeyPair(proxy: proxy, code: m.tCode, flags: m.tFlags)
+            if let idx = list.firstIndex(where: { $0.id == m.id }) {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
+                }
+            }
+            multiMappingState = nil
+        }
+
+        let matches = list.filter {
+            $0.isOn && $0.fCode == keyCode && ($0.fFlags & ModifierKey.allMask) == modifiers
+        }
+
+        if matches.count > 1 {
+            multiMappingState = (keyCode, modifiers, matches)
+            isWheelShowing = true
+            let mouseLocation = NSEvent.mouseLocation
+            RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
+            return nil
+        } else if let m = matches.first {
+            Self.postMappedKey(proxy: proxy, code: m.tCode, flags: m.tFlags, keyDown: true)
+            if let idx = list.firstIndex(where: { $0.id == m.id }) {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
+                }
+            }
+            return nil
+        }
+
+        return Unmanaged.passRetained(originalEvent)
+    }
+
+    private func handleKeyUp(proxy: CGEventTapProxy, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+        if let state = multiMappingState, state.keyCode == keyCode {
+            let mapping: MyMap
+            if isWheelShowing {
+                mapping = RadialWheelManager.shared.getSelectedMapping() ?? state.matches[0]
+                RadialWheelManager.shared.hide()
+                isWheelShowing = false
+            } else {
+                mapping = state.matches[0]
+            }
+
+            Self.postMappedKeyPair(proxy: proxy, code: mapping.tCode, flags: mapping.tFlags)
+            if let idx = list.firstIndex(where: { $0.id == mapping.id }) {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
+                }
+            }
+            multiMappingState = nil
+            return nil
+        }
+
+        return Unmanaged.passRetained(originalEvent)
     }
 }

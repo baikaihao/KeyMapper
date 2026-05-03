@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var isRecHotkey = false
     // 临时存储录制的暂停热键
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
+    @State private var toastStyle = ToastManager.shared.style
 
     var body: some View {
         ScrollView {
@@ -87,9 +88,8 @@ struct SettingsView: View {
                                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                                         .foregroundColor(.accentColor)
 
-                                    // 重置为默认暂停热键 Z+Shift+Cmd
                                     Button(action: {
-                                        engine.pauseHotkey = (keyCode: 6, flags: 0x120000)
+                                        engine.pauseHotkey = MappingStore.defaultPauseHotkey
                                     }) {
                                         Image(systemName: "arrow.counterclockwise.circle.fill")
                                             .font(.system(size: 12))
@@ -127,6 +127,7 @@ struct SettingsView: View {
                                 .font(.system(size: 11))
                             }
                         }
+                        .background(engine.isActive ? Color.clear : Color.orange.opacity(0.1))
                     }
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(10)
@@ -244,7 +245,7 @@ struct SettingsView: View {
                         SettingsRow(
                             title: NSLocalizedString("settings.last.backup", comment: ""),
                             description: backupManager.lastBackupDate != nil
-                                ? formatDate(backupManager.lastBackupDate!)
+                                ? backupManager.lastBackupDate!.formattedMedium
                                 : NSLocalizedString("settings.never", comment: "")
                         ) {
                             Button(action: {
@@ -256,6 +257,95 @@ struct SettingsView: View {
                             .buttonStyle(.bordered)
                         }
                     }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                }
+
+                // MARK: 文字提示
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("文字提示")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("原按键", isOn: $toastStyle.showFromKey)
+                            .onChange(of: toastStyle.showFromKey) { ToastManager.shared.style.showFromKey = $0 }
+                        Toggle("箭头 ->", isOn: $toastStyle.showArrow)
+                            .onChange(of: toastStyle.showArrow) { ToastManager.shared.style.showArrow = $0 }
+                        Toggle("映射为按键", isOn: $toastStyle.showToKey)
+                            .onChange(of: toastStyle.showToKey) { ToastManager.shared.style.showToKey = $0 }
+                        Toggle("备注", isOn: $toastStyle.showNote)
+                            .onChange(of: toastStyle.showNote) { ToastManager.shared.style.showNote = $0 }
+
+                        Divider()
+
+                        HStack {
+                            Text("显示时间")
+                            Spacer()
+                            Slider(value: $toastStyle.displayDuration, in: 0.1...3, step: 0.1)
+                                .frame(width: 120)
+                                .onChange(of: toastStyle.displayDuration) { ToastManager.shared.style.displayDuration = $0 }
+                            Text(String(format: "%.1fs", toastStyle.displayDuration))
+                                .frame(width: 35)
+                        }
+                        HStack {
+                            Text("渐消时间")
+                            Spacer()
+                            Slider(value: $toastStyle.fadeOutDuration, in: 0.1...3, step: 0.1)
+                                .frame(width: 120)
+                                .onChange(of: toastStyle.fadeOutDuration) { ToastManager.shared.style.fadeOutDuration = $0 }
+                            Text(String(format: "%.1fs", toastStyle.fadeOutDuration))
+                                .frame(width: 30)
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Text("背景颜色")
+                            Spacer()
+                            PositionedColorPicker(color: $toastStyle.bgColor)
+                                .frame(width: 32, height: 24)
+                                .onChange(of: toastStyle.bgColor) { ToastManager.shared.style.bgColor = $0 }
+                        }
+                        HStack {
+                            Text("文字颜色")
+                            Spacer()
+                            PositionedColorPicker(color: $toastStyle.textColor)
+                                .frame(width: 32, height: 24)
+                                .onChange(of: toastStyle.textColor) { ToastManager.shared.style.textColor = $0 }
+                        }
+                        HStack {
+                            Text("圆角")
+                            Spacer()
+                            Slider(value: $toastStyle.cornerRadius, in: 0...20, step: 1)
+                                .frame(width: 120)
+                                .onChange(of: toastStyle.cornerRadius) { ToastManager.shared.style.cornerRadius = $0 }
+                            Text("\(Int(toastStyle.cornerRadius))")
+                                .frame(width: 20)
+                        }
+                        HStack {
+                            Text("文字大小")
+                            Spacer()
+                            Slider(value: $toastStyle.fontSize, in: 10...24, step: 1)
+                                .frame(width: 120)
+                                .onChange(of: toastStyle.fontSize) { ToastManager.shared.style.fontSize = $0 }
+                            Text("\(Int(toastStyle.fontSize))")
+                                .frame(width: 20)
+                        }
+
+                        HStack {
+                            Button("预览效果") {
+                                ToastManager.shared.style = toastStyle
+                                ToastManager.shared.previewToast()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(12)
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(10)
                     .overlay(
@@ -277,6 +367,7 @@ struct SettingsView: View {
         }
         .onAppear {
             syncLaunchAtLoginState()
+            toastStyle = ToastManager.shared.style
         }
     }
 
@@ -285,6 +376,7 @@ struct SettingsView: View {
     // 读取系统实际登录项状态，修正 UserDefaults 中的设置值
     // 确保 Toggle 显示的状态与 macOS 系统设置一致
     private func syncLaunchAtLoginState() {
+        AppDelegate.syncLaunchAtLoginState()
         let service = SMAppService.mainApp
         let systemEnabled = (service.status == .enabled)
         if launchAtLogin != systemEnabled {
@@ -349,15 +441,6 @@ struct SettingsView: View {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
-    // MARK: - 日期格式化
-
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
     // MARK: - 导出配置
 
     // 将当前映射规则、黑名单、暂停热键导出为 JSON 文件
@@ -369,23 +452,7 @@ struct SettingsView: View {
         panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
 
         if panel.runModal() == .OK, let url = panel.url {
-            let config: [String: Any] = [
-                "version": "2.0",
-                "mappings": engine.list.map { [
-                    "id": $0.id.uuidString,
-                    "fCode": $0.fCode,
-                    "fFlags": $0.fFlags,
-                    "tCode": $0.tCode,
-                    "tFlags": $0.tFlags,
-                    "isOn": $0.isOn,
-                    "note": $0.note
-                ]},
-                "blacklist": engine.blacklist,
-                "pauseHotkey": engine.pauseHotkey.map { [
-                    "keyCode": $0.keyCode,
-                    "flags": $0.flags
-                ]} as Any
-            ]
+            let config = engine.buildConfigDict()
 
             do {
                 let data = try JSONSerialization.data(withJSONObject: config, options: .prettyPrinted)

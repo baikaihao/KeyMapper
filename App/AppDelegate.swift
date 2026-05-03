@@ -32,12 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         // 触发 MyEngine 单例初始化，加载映射规则并启动键盘事件监听
         _ = MyEngine.shared
 
-        // 同步登录项状态：以系统实际状态为准，修正 UserDefaults 中的设置值
-        // 防止因数据迁移、iCloud 同步、UserDefaults 丢失等原因导致状态不一致
-        syncLaunchAtLoginState()
-
-        // 记录本次启动是否为登录自启，用于抑制引擎激活时的自动弹窗
-        isLaunchAtLogin = UserDefaults.standard.bool(forKey: "setting_launch_at_login")
+        syncAndRecordLaunchAtLogin()
 
         // 根据用户设置决定是否隐藏 Dock 图标
         // .accessory: 仅菜单栏图标，无 Dock 图标
@@ -56,9 +51,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         return false
     }
 
-    // 同步登录项状态：读取系统实际的 SMAppService 状态，修正 UserDefaults 中的设置值
-    // 当系统状态与 UserDefaults 不一致时，以系统状态为准并回写 UserDefaults
-    private func syncLaunchAtLoginState() {
+    static func syncLaunchAtLoginState() {
         let service = SMAppService.mainApp
         let systemEnabled = (service.status == .enabled)
         let userDefaultsKey = "setting_launch_at_login"
@@ -67,6 +60,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         if systemEnabled != storedValue {
             UserDefaults.standard.set(systemEnabled, forKey: userDefaultsKey)
         }
+    }
+
+    private func syncAndRecordLaunchAtLogin() {
+        Self.syncLaunchAtLoginState()
+        isLaunchAtLogin = UserDefaults.standard.bool(forKey: "setting_launch_at_login")
     }
 
     // MARK: - 菜单栏图标与菜单
@@ -138,7 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         guard mainWindow == nil else { return }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
