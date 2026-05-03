@@ -82,12 +82,9 @@ struct SidebarView: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(engine.isPaused ? .orange : .green)
                         } else {
-                            Button(action: { selectedTab = .settings }) {
-                                Text(NSLocalizedString("sidebar.engine.waiting", comment: ""))
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(.red)
-                            }
-                            .buttonStyle(.plain)
+                            Text(NSLocalizedString("sidebar.engine.waiting", comment: ""))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.red)
                         }
 
                         Spacer()
@@ -104,6 +101,19 @@ struct SidebarView: View {
                         }
                     }
 
+                    if !engine.isActive {
+                        Button(action: { selectedTab = .settings }) {
+                            Text(NSLocalizedString("sidebar.go.to.settings", comment: ""))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(Color.accentColor)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     // 暂停热键提示和当前日期
                     if let hk = engine.pauseHotkey {
                         VStack(spacing: 2) {
@@ -112,7 +122,7 @@ struct SidebarView: View {
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
 
-                            Text(formatDate())
+                            Text(Date().formattedMedium)
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -123,12 +133,6 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 200)
-    }
-
-    private func formatDate() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: Date())
     }
 }
 

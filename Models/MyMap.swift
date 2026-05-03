@@ -61,25 +61,31 @@ struct MyMap: Identifiable, Codable {
     // 修饰键按 Control → Option → Shift → Command 顺序拼接符号，
     // 然后追加按键名称，例如 "⌃ ⌥ ⇧ ⌘ Z"。
     // 无法识别的 keyCode 显示为 "K{code}"。
+    static let keyMap: [UInt16: String] = [
+        0:  "A ", 1:  "S ", 2:  "D ", 3:  "F ", 4:  "H ", 5:  "G ", 6:  "Z ", 7:  "X ", 8:  "C ", 9:  "V ",
+        11:  "B ", 12:  "Q ", 13:  "W ", 14:  "E ", 15:  "R ", 16:  "Y ", 17:  "T ", 18:  "1 ", 19:  "2 ",
+        20:  "3 ", 21:  "4 ", 22:  "6 ", 23:  "5 ", 24:  "= ", 25:  "9 ", 26:  "7 ", 27:  "-", 28:  "8 ",
+        29:  "0 ", 30:  "] ", 31:  "O ", 32:  "U ", 33:  "[ ", 34:  "I ", 35:  "P ", 37:  "L ", 38:  "J ",
+        39:  "' ", 40:  "K ", 41:  "; ", 42:  "\\ ", 43:  ", ", 44:  "/ ", 45:  "N ", 46:  "M ", 47:  ". ",
+        49:  "Space ", 36:  "↩ ", 51:  "⌫ ", 53:  "Esc ", 48:  "Tab ",
+        123:  "← ", 124:  "→ ", 125:  "↓ ", 126:  "↑ "
+    ]
+
     static func getName(_ c: UInt16, _ f: UInt64) -> String {
         var s = " "
-        // 按标准顺序检测修饰键
-        if (f & 0x40000) != 0 { s += "⌃ " }
-        if (f & 0x80000) != 0 { s += "⌥ " }
-        if (f & 0x20000) != 0 { s += "⇧ " }
-        if (f & 0x100000) != 0 { s += "⌘ " }
-
-        // macOS 虚拟键码到按键名称的映射表
-        let keyMap: [UInt16: String] = [
-            0:  "A ", 1:  "S ", 2:  "D ", 3:  "F ", 4:  "H ", 5:  "G ", 6:  "Z ", 7:  "X ", 8:  "C ", 9:  "V ",
-            11:  "B ", 12:  "Q ", 13:  "W ", 14:  "E ", 15:  "R ", 16:  "Y ", 17:  "T ", 18:  "1 ", 19:  "2 ",
-            20:  "3 ", 21:  "4 ", 22:  "6 ", 23:  "5 ", 24:  "= ", 25:  "9 ", 26:  "7 ", 27:  "-", 28:  "8 ",
-            29:  "0 ", 30:  "] ", 31:  "O ", 32:  "U ", 33:  "[ ", 34:  "I ", 35:  "P ", 37:  "L ", 38:  "J ",
-            39:  "' ", 40:  "K ", 41:  "; ", 42:  "\\ ", 43:  ", ", 44:  "/ ", 45:  "N ", 46:  "M ", 47:  ". ",
-            49:  "Space ", 36:  "↩ ", 51:  "⌫ ", 53:  "Esc ", 48:  "Tab ",
-            123:  "← ", 124:  "→ ", 125:  "↓ ", 126:  "↑ "
-        ]
+        for mod in ModifierKey.allCases {
+            if (f & mod.flagValue) != 0 { s += mod.symbol + " " }
+        }
 
         return s + (keyMap[c] ?? "K\(c) ")
+    }
+}
+
+extension Date {
+    var formattedMedium: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: self)
     }
 }

@@ -34,6 +34,10 @@
 		FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679542F781F2D00E6F969 /* UpdateService.swift */; };
 		FBA679562F781F2E00E6F969 /* BackupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679572F781F2E00E6F969 /* BackupManager.swift */; };
 		FBA679592F781F2F00E6F969 /* KeyPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679582F781F2F00E6F969 /* KeyPickerView.swift */; };
+		FBA6795A2F781F3000E6F969 /* MappingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6795B2F781F3000E6F969 /* MappingStore.swift */; };
+		FBA6795C2F781F3100E6F969 /* ToastStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6795D2F781F3100E6F969 /* ToastStyle.swift */; };
+		FBA6795E2F781F3200E6F969 /* ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA6795F2F781F3200E6F969 /* ToastView.swift */; };
+		FBA679602F781F3300E6F969 /* ToastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679612F781F3300E6F969 /* ToastManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +69,10 @@
 		FBA679542F781F2D00E6F969 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		FBA679572F781F2E00E6F969 /* BackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupManager.swift; sourceTree = "<group>"; };
 		FBA679582F781F2F00E6F969 /* KeyPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyPickerView.swift; sourceTree = "<group>"; };
+		FBA6795B2F781F3000E6F969 /* MappingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappingStore.swift; sourceTree = "<group>"; };
+		FBA6795D2F781F3100E6F969 /* ToastStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastStyle.swift; sourceTree = "<group>"; };
+		FBA6795F2F781F3200E6F969 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
+		FBA679612F781F3300E6F969 /* ToastManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,6 +170,8 @@
 				FBA6794B2F781F2A00E6F969 /* RadialWheel.swift */,
 				FBA6794E2F781F2B00E6F969 /* RulesView.swift */,
 				FBA679372F781F2900E6F969 /* SettingsView.swift */,
+				FBA6795D2F781F3100E6F969 /* ToastStyle.swift */,
+				FBA6795F2F781F3200E6F969 /* ToastView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -180,6 +190,8 @@
 			children = (
 				FBA679542F781F2D00E6F969 /* UpdateService.swift */,
 				FBA679572F781F2E00E6F969 /* BackupManager.swift */,
+				FBA6795B2F781F3000E6F969 /* MappingStore.swift */,
+				FBA679612F781F3300E6F969 /* ToastManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -279,6 +291,10 @@
 				FBA679432F781F2900E6F969 /* MyMap.swift in Sources */,
 				FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */,
 				FBA679562F781F2E00E6F969 /* BackupManager.swift in Sources */,
+				FBA6795A2F781F3000E6F969 /* MappingStore.swift in Sources */,
+				FBA6795C2F781F3100E6F969 /* ToastStyle.swift in Sources */,
+				FBA6795E2F781F3200E6F969 /* ToastView.swift in Sources */,
+				FBA679602F781F3300E6F969 /* ToastManager.swift in Sources */,
 				FBA679592F781F2F00E6F969 /* KeyPickerView.swift in Sources */,
 				FBA679242F781F1F00E6F969 /* ContentView.swift in Sources */,
 				FBA679252F781F1F00E6F969 /* MyEngine.swift in Sources */,
@@ -450,7 +466,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20260502;
+				CURRENT_PROJECT_VERSION = 20260503;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -461,7 +477,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -482,7 +498,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 20260502;
+				CURRENT_PROJECT_VERSION = 20260503;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -493,7 +509,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = bkh.KeyMapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
