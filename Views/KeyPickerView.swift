@@ -38,6 +38,8 @@ enum ModifierKey: String, CaseIterable, Identifiable, Codable {
         case .command: return 0x100000
         }
     }
+
+    static let allMask: UInt64 = ModifierKey.allCases.reduce(0) { $0 | $1.flagValue }
 }
 
 // MARK: - KeyGridItem

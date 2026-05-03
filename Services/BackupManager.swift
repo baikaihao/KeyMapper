@@ -143,24 +143,7 @@ class BackupManager: ObservableObject {
     func performBackup() {
         let engine = MyEngine.shared
 
-        // 构建备份配置字典，版本号用于未来兼容性检查
-        let config: [String: Any] = [
-            "version": "2.0",
-            "mappings": engine.list.map { [
-                "id": $0.id.uuidString,
-                "fCode": $0.fCode,
-                "fFlags": $0.fFlags,
-                "tCode": $0.tCode,
-                "tFlags": $0.tFlags,
-                "isOn": $0.isOn,
-                "note": $0.note
-            ]},
-            "blacklist": engine.blacklist,
-            "pauseHotkey": engine.pauseHotkey.map { [
-                "keyCode": $0.keyCode,
-                "flags": $0.flags
-            ]} as Any
-        ]
+        let config = engine.buildConfigDict()
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
