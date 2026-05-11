@@ -83,7 +83,10 @@ class ToastManager {
     static let shared = ToastManager()
 
     var style: ToastStyle {
-        didSet { style.saveToDefaults() }
+        didSet {
+            style.saveToDefaults()
+            applyWindowLevel()
+        }
     }
 
     private let toastState: ToastState
@@ -109,7 +112,7 @@ class ToastManager {
             backing: .buffered,
             defer: false
         )
-        w.level = .floating
+        w.level = windowLevel
         w.isOpaque = false
         w.backgroundColor = .clear
         w.hasShadow = false
@@ -125,6 +128,14 @@ class ToastManager {
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
             self?.checkMouseHover()
         }
+    }
+
+    private var windowLevel: NSWindow.Level {
+        style.alwaysOnTop ? .screenSaver : .floating
+    }
+
+    private func applyWindowLevel() {
+        window?.level = windowLevel
     }
 
     private func checkMouseHover() {

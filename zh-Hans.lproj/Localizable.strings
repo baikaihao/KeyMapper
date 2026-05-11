@@ -9,6 +9,7 @@
 /* Sidebar */
 "sidebar.rules" = "规则管理";
 "sidebar.blacklist" = "黑名单";
+"sidebar.toast" = "文字提示";
 "sidebar.settings" = "设置";
 "sidebar.about" = "关于";
 "sidebar.engine.running" = "引擎已启动";
@@ -67,6 +68,35 @@
 "settings.import.error.title" = "导入失败";
 "settings.launch.error.title" = "无法设置开机自启";
 "settings.launch.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
+/* Toast Settings */
+"toast.settings.title" = "文字提示";
+"toast.settings.desc" = "配置规则触发后的文字提示内容、显示层级和样式";
+"toast.content" = "显示内容";
+"toast.behavior" = "显示行为";
+"toast.appearance" = "外观";
+"toast.show.from.key" = "原按键";
+"toast.show.from.key.desc" = "在提示中显示触发映射的原始按键";
+"toast.show.arrow" = "箭头";
+"toast.show.arrow.desc" = "在原按键和目标按键之间显示 ->";
+"toast.show.to.key" = "映射为按键";
+"toast.show.to.key.desc" = "在提示中显示映射后的目标按键";
+"toast.show.note" = "备注";
+"toast.show.note.desc" = "规则备注不为空时显示备注";
+"toast.always.on.top" = "置顶显示";
+"toast.always.on.top.desc" = "让文字提示显示在所有窗口顶部";
+"toast.display.duration" = "显示时间";
+"toast.display.duration.desc" = "提示保持可见的时长";
+"toast.fade.duration" = "渐消时间";
+"toast.fade.duration.desc" = "提示淡出动画的时长";
+"toast.bg.color" = "背景颜色";
+"toast.bg.color.desc" = "文字提示气泡的背景颜色";
+"toast.text.color" = "文字颜色";
+"toast.text.color.desc" = "文字提示内容的颜色";
+"toast.corner.radius" = "圆角";
+"toast.corner.radius.desc" = "文字提示气泡的圆角大小";
+"toast.font.size" = "文字大小";
+"toast.font.size.desc" = "文字提示内容的字号";
+"toast.preview" = "预览效果";
 
 /* Auto Backup */
 "settings.auto.backup" = "自动备份";
@@ -86,7 +116,7 @@
 "settings.backup.select.folder" = "选择备份文件夹";
 
 /* About View */
-"about.version" = "版本 2.1.0 (Build 20260425)";
+"about.version" = "版本 2.2.2 (Build 20260511)";
 "about.check.update" = "检查更新";
 "about.license" = "许可证协议";
 "about.support" = "技术支持";

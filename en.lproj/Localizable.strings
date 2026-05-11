@@ -9,6 +9,7 @@
 /* Sidebar */
 "sidebar.rules" = "Rules";
 "sidebar.blacklist" = "Blacklist";
+"sidebar.toast" = "Text Toast";
 "sidebar.settings" = "Settings";
 "sidebar.about" = "About";
 "sidebar.engine.running" = "Engine Running";
@@ -67,6 +68,35 @@
 "settings.import.error.title" = "Import Failed";
 "settings.launch.error.title" = "Cannot Set Launch at Login";
 "settings.launch.error.message" = "Try moving the app to the Applications folder and try again.";
+/* Toast Settings */
+"toast.settings.title" = "Text Toast";
+"toast.settings.desc" = "Configure the text shown after a mapping is triggered, including layer and style";
+"toast.content" = "Content";
+"toast.behavior" = "Behavior";
+"toast.appearance" = "Appearance";
+"toast.show.from.key" = "Original Key";
+"toast.show.from.key.desc" = "Show the original key that triggered the mapping";
+"toast.show.arrow" = "Arrow";
+"toast.show.arrow.desc" = "Show -> between the original and target keys";
+"toast.show.to.key" = "Mapped Key";
+"toast.show.to.key.desc" = "Show the target key produced by the mapping";
+"toast.show.note" = "Note";
+"toast.show.note.desc" = "Show the rule note when it is not empty";
+"toast.always.on.top" = "Always on Top";
+"toast.always.on.top.desc" = "Show text toasts above all windows";
+"toast.display.duration" = "Display Duration";
+"toast.display.duration.desc" = "How long the toast remains visible";
+"toast.fade.duration" = "Fade Duration";
+"toast.fade.duration.desc" = "How long the fade-out animation takes";
+"toast.bg.color" = "Background Color";
+"toast.bg.color.desc" = "Background color of the toast bubble";
+"toast.text.color" = "Text Color";
+"toast.text.color.desc" = "Color of the toast text";
+"toast.corner.radius" = "Corner Radius";
+"toast.corner.radius.desc" = "Corner radius of the toast bubble";
+"toast.font.size" = "Font Size";
+"toast.font.size.desc" = "Text size used by toast content";
+"toast.preview" = "Preview";
 
 /* Auto Backup */
 "settings.auto.backup" = "Auto Backup";
@@ -86,7 +116,7 @@
 "settings.backup.select.folder" = "Select a folder for backups";
 
 /* About View */
-"about.version" = "Version 2.1.0 (Build 20260425)";
+"about.version" = "Version 2.2.2 (Build 20260511)";
 "about.check.update" = "Check for Updates";
 "about.license" = "License Agreement";
 "about.support" = "Technical Support";

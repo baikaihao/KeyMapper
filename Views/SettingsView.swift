@@ -19,7 +19,6 @@ struct SettingsView: View {
     @State private var isRecHotkey = false
     // 临时存储录制的暂停热键
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
-    @State private var toastStyle = ToastManager.shared.style
 
     var body: some View {
         ScrollView {
@@ -265,94 +264,6 @@ struct SettingsView: View {
                     )
                 }
 
-                // MARK: 文字提示
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("文字提示")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 8)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("原按键", isOn: $toastStyle.showFromKey)
-                            .onChange(of: toastStyle.showFromKey) { ToastManager.shared.style.showFromKey = $0 }
-                        Toggle("箭头 ->", isOn: $toastStyle.showArrow)
-                            .onChange(of: toastStyle.showArrow) { ToastManager.shared.style.showArrow = $0 }
-                        Toggle("映射为按键", isOn: $toastStyle.showToKey)
-                            .onChange(of: toastStyle.showToKey) { ToastManager.shared.style.showToKey = $0 }
-                        Toggle("备注", isOn: $toastStyle.showNote)
-                            .onChange(of: toastStyle.showNote) { ToastManager.shared.style.showNote = $0 }
-
-                        Divider()
-
-                        HStack {
-                            Text("显示时间")
-                            Spacer()
-                            Slider(value: $toastStyle.displayDuration, in: 0.1...3, step: 0.1)
-                                .frame(width: 120)
-                                .onChange(of: toastStyle.displayDuration) { ToastManager.shared.style.displayDuration = $0 }
-                            Text(String(format: "%.1fs", toastStyle.displayDuration))
-                                .frame(width: 35)
-                        }
-                        HStack {
-                            Text("渐消时间")
-                            Spacer()
-                            Slider(value: $toastStyle.fadeOutDuration, in: 0.1...3, step: 0.1)
-                                .frame(width: 120)
-                                .onChange(of: toastStyle.fadeOutDuration) { ToastManager.shared.style.fadeOutDuration = $0 }
-                            Text(String(format: "%.1fs", toastStyle.fadeOutDuration))
-                                .frame(width: 30)
-                        }
-
-                        Divider()
-
-                        HStack {
-                            Text("背景颜色")
-                            Spacer()
-                            PositionedColorPicker(color: $toastStyle.bgColor)
-                                .frame(width: 32, height: 24)
-                                .onChange(of: toastStyle.bgColor) { ToastManager.shared.style.bgColor = $0 }
-                        }
-                        HStack {
-                            Text("文字颜色")
-                            Spacer()
-                            PositionedColorPicker(color: $toastStyle.textColor)
-                                .frame(width: 32, height: 24)
-                                .onChange(of: toastStyle.textColor) { ToastManager.shared.style.textColor = $0 }
-                        }
-                        HStack {
-                            Text("圆角")
-                            Spacer()
-                            Slider(value: $toastStyle.cornerRadius, in: 0...20, step: 1)
-                                .frame(width: 120)
-                                .onChange(of: toastStyle.cornerRadius) { ToastManager.shared.style.cornerRadius = $0 }
-                            Text("\(Int(toastStyle.cornerRadius))")
-                                .frame(width: 20)
-                        }
-                        HStack {
-                            Text("文字大小")
-                            Spacer()
-                            Slider(value: $toastStyle.fontSize, in: 10...24, step: 1)
-                                .frame(width: 120)
-                                .onChange(of: toastStyle.fontSize) { ToastManager.shared.style.fontSize = $0 }
-                            Text("\(Int(toastStyle.fontSize))")
-                                .frame(width: 20)
-                        }
-
-                        HStack {
-                            Button("预览效果") {
-                                ToastManager.shared.style = toastStyle
-                                ToastManager.shared.previewToast()
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-                    .padding(12)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                    )
-                }
             }
             .padding(20)
         }
@@ -367,7 +278,6 @@ struct SettingsView: View {
         }
         .onAppear {
             syncLaunchAtLoginState()
-            toastStyle = ToastManager.shared.style
         }
     }
 
@@ -547,6 +457,206 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - ToastSettingsView
+// 文字提示的独立设置子页面。
+
+struct ToastSettingsView: View {
+    @State private var toastStyle = ToastManager.shared.style
+
+    var body: some View {
+        ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    settingsSection(
+                        title: NSLocalizedString("toast.content", comment: "")
+                    ) {
+                        VStack(spacing: 0) {
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.from.key", comment: ""),
+                                description: NSLocalizedString("toast.show.from.key.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showFromKey)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showFromKey) { newValue in updateStyle { $0.showFromKey = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.arrow", comment: ""),
+                                description: NSLocalizedString("toast.show.arrow.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showArrow)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showArrow) { newValue in updateStyle { $0.showArrow = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.to.key", comment: ""),
+                                description: NSLocalizedString("toast.show.to.key.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showToKey)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showToKey) { newValue in updateStyle { $0.showToKey = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.note", comment: ""),
+                                description: NSLocalizedString("toast.show.note.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showNote)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showNote) { newValue in updateStyle { $0.showNote = newValue } }
+                            }
+                        }
+                        .settingsCardStyle()
+                    }
+
+                    settingsSection(
+                        title: NSLocalizedString("toast.behavior", comment: "")
+                    ) {
+                        VStack(spacing: 0) {
+                            SettingsRow(
+                                title: NSLocalizedString("toast.always.on.top", comment: ""),
+                                description: NSLocalizedString("toast.always.on.top.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.alwaysOnTop)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.alwaysOnTop) { newValue in updateStyle { $0.alwaysOnTop = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.display.duration", comment: ""),
+                                description: NSLocalizedString("toast.display.duration.desc", comment: "")
+                            ) {
+                                HStack(spacing: 8) {
+                                    Slider(value: $toastStyle.displayDuration, in: 0.1...3, step: 0.1)
+                                        .frame(width: 140)
+                                        .onChange(of: toastStyle.displayDuration) { newValue in updateStyle { $0.displayDuration = newValue } }
+                                    Text(String(format: "%.1fs", toastStyle.displayDuration))
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(width: 42, alignment: .trailing)
+                                }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.fade.duration", comment: ""),
+                                description: NSLocalizedString("toast.fade.duration.desc", comment: "")
+                            ) {
+                                HStack(spacing: 8) {
+                                    Slider(value: $toastStyle.fadeOutDuration, in: 0.1...3, step: 0.1)
+                                        .frame(width: 140)
+                                        .onChange(of: toastStyle.fadeOutDuration) { newValue in updateStyle { $0.fadeOutDuration = newValue } }
+                                    Text(String(format: "%.1fs", toastStyle.fadeOutDuration))
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(width: 42, alignment: .trailing)
+                                }
+                            }
+                        }
+                        .settingsCardStyle()
+                    }
+
+                    settingsSection(
+                        title: NSLocalizedString("toast.appearance", comment: "")
+                    ) {
+                        VStack(spacing: 0) {
+                            SettingsRow(
+                                title: NSLocalizedString("toast.bg.color", comment: ""),
+                                description: NSLocalizedString("toast.bg.color.desc", comment: "")
+                            ) {
+                                PositionedColorPicker(color: $toastStyle.bgColor)
+                                    .frame(width: 32, height: 24)
+                                    .onChange(of: toastStyle.bgColor) { newValue in updateStyle { $0.bgColor = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.text.color", comment: ""),
+                                description: NSLocalizedString("toast.text.color.desc", comment: "")
+                            ) {
+                                PositionedColorPicker(color: $toastStyle.textColor)
+                                    .frame(width: 32, height: 24)
+                                    .onChange(of: toastStyle.textColor) { newValue in updateStyle { $0.textColor = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.corner.radius", comment: ""),
+                                description: NSLocalizedString("toast.corner.radius.desc", comment: "")
+                            ) {
+                                HStack(spacing: 8) {
+                                    Slider(value: $toastStyle.cornerRadius, in: 0...20, step: 1)
+                                        .frame(width: 140)
+                                        .onChange(of: toastStyle.cornerRadius) { newValue in updateStyle { $0.cornerRadius = newValue } }
+                                    Text("\(Int(toastStyle.cornerRadius))")
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(width: 30, alignment: .trailing)
+                                }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.font.size", comment: ""),
+                                description: NSLocalizedString("toast.font.size.desc", comment: "")
+                            ) {
+                                HStack(spacing: 8) {
+                                    Slider(value: $toastStyle.fontSize, in: 10...24, step: 1)
+                                        .frame(width: 140)
+                                        .onChange(of: toastStyle.fontSize) { newValue in updateStyle { $0.fontSize = newValue } }
+                                    Text("\(Int(toastStyle.fontSize))")
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(width: 30, alignment: .trailing)
+                                }
+                            }
+                        }
+                        .settingsCardStyle()
+                    }
+
+                    Button(action: {
+                        ToastManager.shared.style = toastStyle
+                        ToastManager.shared.previewToast()
+                    }) {
+                        Label(NSLocalizedString("toast.preview", comment: ""), systemImage: "text.bubble")
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(20)
+        }
+        .onAppear {
+            toastStyle = ToastManager.shared.style
+        }
+    }
+
+    private func updateStyle(_ mutation: (inout ToastStyle) -> Void) {
+        var style = ToastManager.shared.style
+        mutation(&style)
+        ToastManager.shared.style = style
+    }
+
+    private func settingsSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.bottom, 12)
+
+            content()
+        }
+    }
+}
+
 // MARK: - SettingsRow
 // 通用设置行组件，左侧标题+描述，右侧自定义内容
 
@@ -573,5 +683,17 @@ struct SettingsRow<Content: View>: View {
             content
         }
         .padding(12)
+    }
+}
+
+private extension View {
+    func settingsCardStyle() -> some View {
+        self
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+            )
     }
 }
