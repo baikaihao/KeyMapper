@@ -43,6 +43,8 @@ class MyEngine: ObservableObject {
     private var authTimer: Timer?
     // 多映射状态：当同一按键映射到多个目标时，暂存匹配结果等待用户选择
     private var multiMappingState: (keyCode: UInt16, flags: UInt64, matches: [MyMap])?
+    // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp。
+    private var activeSingleMappings: [UInt16: MyMap] = [:]
     // 径向选择轮盘是否正在显示
     private var isWheelShowing: Bool = false
     // 自身应用的 Bundle ID，用于在回调中过滤自身应用的按键事件
@@ -122,10 +124,11 @@ class MyEngine: ObservableObject {
 
     private static let eventTag: Int64 = 12345
 
-    private static func postMappedKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool) {
+    private static func postMappedKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false) {
         let source = CGEventSource(stateID: .combinedSessionState)
         if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
             e.flags = CGEventFlags(rawValue: flags)
+            e.setIntegerValueField(.keyboardEventAutorepeat, value: isAutorepeat ? 1 : 0)
             e.setIntegerValueField(.eventSourceUserData, value: eventTag)
             e.tapPostEvent(proxy)
         }
@@ -136,6 +139,10 @@ class MyEngine: ObservableObject {
         postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: false)
     }
 
+    private func shouldHandleMappedKeyUp(keyCode: UInt16) -> Bool {
+        activeSingleMappings[keyCode] != nil || multiMappingState?.keyCode == keyCode
+    }
+
     func start() {
         retryTimer?.invalidate()
         let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
@@ -144,17 +151,21 @@ class MyEngine: ObservableObject {
             let f = event.flags.rawValue
 
             if event.getIntegerValueField(.eventSourceUserData) == MyEngine.eventTag {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
+            }
+
+            if type == .keyUp && MyEngine.shared.shouldHandleMappedKeyUp(keyCode: c) {
+                return MyEngine.shared.handleKeyUp(proxy: proxy, keyCode: c, originalEvent: event)
             }
 
             if MyEngine.shared.isRecording {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                let bundleId = frontApp.bundleIdentifier,
                bundleId == MyEngine.shared.myBundleId {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             if let hk = MyEngine.shared.pauseHotkey {
@@ -167,13 +178,13 @@ class MyEngine: ObservableObject {
             }
 
             if MyEngine.shared.isPaused {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                let bundleId = frontApp.bundleIdentifier,
                MyEngine.shared.blacklist.contains(bundleId) {
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             }
 
             let currentModifiers = f & ModifierKey.allMask
@@ -186,7 +197,7 @@ class MyEngine: ObservableObject {
                 return MyEngine.shared.handleKeyUp(proxy: proxy, keyCode: c, originalEvent: event)
             }
 
-            return Unmanaged.passRetained(event)
+            return Unmanaged.passUnretained(event)
         }
 
         tap = CGEvent.tapCreate(
@@ -249,7 +260,8 @@ class MyEngine: ObservableObject {
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
-            Self.postMappedKey(proxy: proxy, code: m.tCode, flags: m.tFlags, keyDown: true)
+            activeSingleMappings[keyCode] = m
+            Self.postMappedKey(proxy: proxy, code: m.tCode, flags: m.tFlags, keyDown: true, isAutorepeat: isAutorepeat)
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -258,10 +270,15 @@ class MyEngine: ObservableObject {
             return nil
         }
 
-        return Unmanaged.passRetained(originalEvent)
+        return Unmanaged.passUnretained(originalEvent)
     }
 
     private func handleKeyUp(proxy: CGEventTapProxy, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+        if let mapping = activeSingleMappings.removeValue(forKey: keyCode) {
+            Self.postMappedKey(proxy: proxy, code: mapping.tCode, flags: mapping.tFlags, keyDown: false)
+            return nil
+        }
+
         if let state = multiMappingState, state.keyCode == keyCode {
             let mapping: MyMap
             if isWheelShowing {
@@ -282,6 +299,6 @@ class MyEngine: ObservableObject {
             return nil
         }
 
-        return Unmanaged.passRetained(originalEvent)
+        return Unmanaged.passUnretained(originalEvent)
     }
 }

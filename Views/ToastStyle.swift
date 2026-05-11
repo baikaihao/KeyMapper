@@ -11,14 +11,16 @@ struct ToastStyle {
     var textColor: Color = .white
     var bgColor: Color = Color.black.opacity(0.75)
     var cornerRadius: CGFloat = 8
+    var alwaysOnTop: Bool = false
 
     func loadFromDefaults() -> ToastStyle {
         var s = self
         let d = UserDefaults.standard
-        s.showFromKey = d.bool(forKey: "toast_show_from_key")
-        s.showArrow = d.bool(forKey: "toast_show_arrow")
-        s.showToKey = d.bool(forKey: "toast_show_to_key")
-        s.showNote = d.bool(forKey: "toast_show_note")
+        s.showFromKey = d.object(forKey: "toast_show_from_key") == nil ? s.showFromKey : d.bool(forKey: "toast_show_from_key")
+        s.showArrow = d.object(forKey: "toast_show_arrow") == nil ? s.showArrow : d.bool(forKey: "toast_show_arrow")
+        s.showToKey = d.object(forKey: "toast_show_to_key") == nil ? s.showToKey : d.bool(forKey: "toast_show_to_key")
+        s.showNote = d.object(forKey: "toast_show_note") == nil ? s.showNote : d.bool(forKey: "toast_show_note")
+        s.alwaysOnTop = d.object(forKey: "toast_always_on_top") == nil ? s.alwaysOnTop : d.bool(forKey: "toast_always_on_top")
         s.displayDuration = d.double(forKey: "toast_display_duration")
         s.fadeOutDuration = d.double(forKey: "toast_fade_out_duration")
         s.fontSize = CGFloat(d.double(forKey: "toast_font_size"))
@@ -43,6 +45,7 @@ struct ToastStyle {
         d.set(showArrow, forKey: "toast_show_arrow")
         d.set(showToKey, forKey: "toast_show_to_key")
         d.set(showNote, forKey: "toast_show_note")
+        d.set(alwaysOnTop, forKey: "toast_always_on_top")
         d.set(displayDuration, forKey: "toast_display_duration")
         d.set(fadeOutDuration, forKey: "toast_fade_out_duration")
         d.set(Double(fontSize), forKey: "toast_font_size")
