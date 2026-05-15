@@ -353,7 +353,7 @@ struct SettingsView: View {
 
     // MARK: - 导出配置
 
-    // 将当前映射规则、黑名单、暂停热键导出为 JSON 文件
+    // 将当前映射规则和暂停热键导出为 JSON 文件
     private func exportConfig() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
@@ -384,7 +384,7 @@ struct SettingsView: View {
 
     // MARK: - 导入配置
 
-    // 从 JSON 文件导入映射规则、黑名单和暂停热键，覆盖当前配置
+    // 从 JSON 文件导入映射规则和暂停热键，覆盖当前配置
     private func importConfig() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
@@ -400,6 +400,7 @@ struct SettingsView: View {
                 }
 
                 var importedCount = 0
+                let importedGlobalBlacklist = config["blacklist"] as? [String] ?? []
 
                 // 解析映射规则
                 if let mappings = config["mappings"] as? [[String: Any]] {
@@ -411,16 +412,23 @@ struct SettingsView: View {
                         let id = (m["id"] as? String).flatMap { UUID(uuidString: $0) } ?? UUID()
                         let isOn = m["isOn"] as? Bool ?? true
                         let note = m["note"] as? String ?? ""
+                        let appBlacklist = m["appBlacklist"] as? [String] ?? []
                         importedCount += 1
-                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn, note: note)
+                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn, note: note, appBlacklist: appBlacklist)
                     }
-                    engine.list = newMappings
+
+                    if !importedGlobalBlacklist.isEmpty {
+                        engine.list = newMappings.map { mapping in
+                            var migrated = mapping
+                            migrated.mergeAppBlacklist(importedGlobalBlacklist)
+                            return migrated
+                        }
+                    } else {
+                        engine.list = newMappings
+                    }
                 }
 
-                // 解析黑名单
-                if let blacklist = config["blacklist"] as? [String] {
-                    engine.blacklist = blacklist
-                }
+                engine.blacklist = importedGlobalBlacklist
 
                 // 解析暂停热键
                 if let hotkey = config["pauseHotkey"] as? [String: Any],
@@ -458,7 +466,7 @@ struct SettingsView: View {
 }
 
 // MARK: - ToastSettingsView
-// 文字提示的独立设置子页面。
+// 弹窗提示的独立设置子页面。
 
 struct ToastSettingsView: View {
     @State private var toastStyle = ToastManager.shared.style

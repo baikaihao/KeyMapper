@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(ssh-keyscan -p 443 ssh.github.com)",
+      "Bash(ssh -T -p 443 ssh.github.com)",
+      "Bash(git config *)"
+    ]
+  }
+}

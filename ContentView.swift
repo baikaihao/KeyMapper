@@ -6,7 +6,6 @@ import AppKit
 
 enum SidebarItem: String, CaseIterable {
     case rules = "rules"
-    case blacklist = "blacklist"
     case toast = "toast"
     case settings = "settings"
     case about = "about"
@@ -15,7 +14,6 @@ enum SidebarItem: String, CaseIterable {
     var title: String {
         switch self {
         case .rules: return NSLocalizedString("sidebar.rules", comment: "")
-        case .blacklist: return NSLocalizedString("sidebar.blacklist", comment: "")
         case .toast: return NSLocalizedString("sidebar.toast", comment: "")
         case .settings: return NSLocalizedString("sidebar.settings", comment: "")
         case .about: return NSLocalizedString("sidebar.about", comment: "")
@@ -26,7 +24,6 @@ enum SidebarItem: String, CaseIterable {
     var icon: String {
         switch self {
         case .rules: return "keyboard"
-        case .blacklist: return "xmark.circle"
         case .toast: return "text.bubble"
         case .settings: return "gearshape"
         case .about: return "info.circle"
@@ -65,7 +62,7 @@ struct SidebarView: View {
             // 导航按钮区域
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(SidebarItem.allCases, id: \.self) { item in
-                    SidebarButton(item: item, selectedTab: $selectedTab, count: item == .blacklist ? engine.blacklist.count : nil)
+                    SidebarButton(item: item, selectedTab: $selectedTab, count: nil)
                 }
             }
             .padding(.horizontal, 8)
@@ -214,8 +211,6 @@ struct DetailView: View {
                 switch selectedTab {
                 case .rules:
                     RulesView()
-                case .blacklist:
-                    BlacklistView()
                 case .toast:
                     ToastSettingsView()
                 case .settings:

@@ -9,6 +9,7 @@ import SwiftUI
 // - tCode/tFlags: 目标按键的 keyCode 和修饰键标志位
 // - isOn: 该规则是否启用
 // - note: 用户自定义备注
+// - appBlacklist: 该规则在哪些应用中不执行
 //
 // flags 位掩码说明（CGEventFlags）：
 // - 0x40000: Control 键
@@ -30,13 +31,15 @@ struct MyMap: Identifiable, Codable {
     var isOn: Bool = true
     // 用户备注
     var note: String = ""
+    // 规则级应用黑名单：当前台应用 Bundle ID 在列表中时，该规则不执行
+    var appBlacklist: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, fCode, fFlags, tCode, tFlags, isOn, note
+        case id, fCode, fFlags, tCode, tFlags, isOn, note, appBlacklist
     }
 
     // 完整初始化器，支持指定所有属性
-    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, isOn: Bool = true, note: String = "") {
+    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, isOn: Bool = true, note: String = "", appBlacklist: [String] = []) {
         self.id = id
         self.fCode = fCode
         self.fFlags = fFlags
@@ -44,15 +47,36 @@ struct MyMap: Identifiable, Codable {
         self.tFlags = tFlags
         self.isOn = isOn
         self.note = note
+        self.appBlacklist = appBlacklist
     }
 
     // 便捷初始化器，用于新增映射时自动生成 id，默认启用
-    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, note: String = "") {
+    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, note: String = "", appBlacklist: [String] = []) {
         self.fCode = fCode
         self.fFlags = fFlags
         self.tCode = tCode
         self.tFlags = tFlags
         self.note = note
+        self.appBlacklist = appBlacklist
+    }
+
+    // 自定义解码用于兼容旧版本保存的规则数据。
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        fCode = try container.decode(UInt16.self, forKey: .fCode)
+        fFlags = try container.decode(UInt64.self, forKey: .fFlags)
+        tCode = try container.decode(UInt16.self, forKey: .tCode)
+        tFlags = try container.decode(UInt64.self, forKey: .tFlags)
+        isOn = try container.decodeIfPresent(Bool.self, forKey: .isOn) ?? true
+        note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
+        appBlacklist = try container.decodeIfPresent([String].self, forKey: .appBlacklist) ?? []
+    }
+
+    mutating func mergeAppBlacklist(_ bundleIds: [String]) {
+        for bundleId in bundleIds where !appBlacklist.contains(bundleId) {
+            appBlacklist.append(bundleId)
+        }
     }
 
     // MARK: - 按键名称转换
