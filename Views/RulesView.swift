@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - RulesView
 // 映射规则管理页面。
@@ -22,6 +24,7 @@ struct RulesView: View {
     @State private var editingKeyType: KeyType = .source
     @State private var showEditKeyPicker = false
     @State private var editSelection: (UInt16, UInt64)? = nil
+    @State private var runningApps: [RunningAppInfo] = []
 
     enum KeyType {
         case source
@@ -30,154 +33,104 @@ struct RulesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(NSLocalizedString("rules.title", comment: ""))
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text(NSLocalizedString("rules.title", comment: ""))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Menu {
+                    if runningApps.isEmpty {
+                        Text(NSLocalizedString("global.blacklist.no.running.apps", comment: ""))
+                    } else {
+                        ForEach(runningApps) { app in
+                            Button(action: {
+                                addGlobalBlacklistApp(app.bundleId)
+                            }) {
+                                Label(app.name, systemImage: engine.blacklist.contains(app.bundleId) ? "checkmark" : "app")
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button(action: addGlobalBlacklistFromFinder) {
+                        Label(NSLocalizedString("global.blacklist.add.finder", comment: ""), systemImage: "folder")
+                    }
+                } label: {
+                    Label(NSLocalizedString("global.blacklist.add", comment: ""), systemImage: "plus.circle")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .onTapGesture {
+                    refreshRunningApps()
+                }
+            }
+            .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
                 .padding(.bottom, 12)
 
             // 规则列表
             ScrollView {
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        Text(NSLocalizedString("rules.original.key", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-
-                        Text(NSLocalizedString("rules.map.to", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-
-                        Text(NSLocalizedString("rules.note", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-
-                        Text(NSLocalizedString("rules.enable", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 60, alignment: .center)
-
-                        Text(NSLocalizedString("rules.actions", comment: ""))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 50, alignment: .center)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-
-                    Divider()
-                        .padding(.horizontal, 20)
-
-                    ForEach(Array(engine.list.enumerated()), id: \.element.id) { index, m in
-                        HStack(spacing: 0) {
-                            // 源按键显示与修改按钮
-                            HStack(spacing: 4) {
-                                Text(MyMap.getName(m.fCode, m.fFlags))
-                                    .font(.system(size: 13, weight: .medium))
-                                Button(action: {
-                                    editSelection = (m.fCode, m.fFlags)
-                                    editingRuleId = m.id
-                                    editingKeyType = .source
-                                    showEditKeyPicker = true
-                                }) {
-                                    Image(systemName: "square.and.pencil")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                                .help(NSLocalizedString("rules.edit.key", comment: ""))
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-
-                            // 目标按键显示与修改按钮
-                            HStack(spacing: 4) {
-                                Text(MyMap.getName(m.tCode, m.tFlags))
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.accentColor)
-                                Button(action: {
-                                    editSelection = (m.tCode, m.tFlags)
-                                    editingRuleId = m.id
-                                    editingKeyType = .target
-                                    showEditKeyPicker = true
-                                }) {
-                                    Image(systemName: "square.and.pencil")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                                .help(NSLocalizedString("rules.edit.key", comment: ""))
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-
-                            if editingNoteId == m.id {
-                                TextField(NSLocalizedString("rules.note.placeholder", comment: ""), text: $editingNoteText)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 12))
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(4)
-                                    .background(Color(NSColor.textBackgroundColor))
-                                    .cornerRadius(4)
-                                    .onSubmit {
-                                        saveNote(for: m.id)
-                                    }
-                                    .onExitCommand {
-                                        editingNoteId = nil
-                                    }
-                            } else {
-                                Text(m.note.isEmpty ? "-" : m.note)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(m.note.isEmpty ? .secondary : .primary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .onTapGesture {
-                                        editingNoteId = m.id
-                                        editingNoteText = m.note
-                                    }
-                            }
-
-                            Toggle("", isOn: Binding(
+                VStack(spacing: 8) {
+                    ForEach(engine.list) { m in
+                        RuleItemRow(
+                            mapping: m,
+                            isEditingNote: editingNoteId == m.id,
+                            editingNoteText: $editingNoteText,
+                            isEnabled: Binding(
                                 get: { m.isOn },
                                 set: { val in
                                     if let idx = engine.list.firstIndex(where: { $0.id == m.id }) {
                                         engine.list[idx].isOn = val
                                     }
                                 }
-                            ))
-                            .toggleStyle(.switch)
-                            .scaleEffect(0.7)
-                            .labelsHidden()
-                            .frame(width: 60, alignment: .center)
-
-                            Button(action: { engine.list.removeAll { $0.id == m.id } }) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.red)
+                            ),
+                            onEditSource: {
+                                editSelection = (m.fCode, m.fFlags)
+                                editingRuleId = m.id
+                                editingKeyType = .source
+                                showEditKeyPicker = true
+                            },
+                            onEditTarget: {
+                                editSelection = (m.tCode, m.tFlags)
+                                editingRuleId = m.id
+                                editingKeyType = .target
+                                showEditKeyPicker = true
+                            },
+                            onStartEditingNote: {
+                                editingNoteId = m.id
+                                editingNoteText = m.note
+                            },
+                            onSaveNote: {
+                                saveNote(for: m.id)
+                            },
+                            onCancelNote: {
+                                editingNoteId = nil
+                            },
+                            onDelete: {
+                                engine.list.removeAll { $0.id == m.id }
+                            },
+                            runningApps: runningApps,
+                            onAddRunningAppBlacklist: { bundleId in
+                                addAppBlacklist(bundleId, to: m.id)
+                            },
+                            onAddAppBlacklistFromFinder: {
+                                addAppBlacklistFromFinder(to: m.id)
+                            },
+                            onRemoveAppBlacklist: { bundleId in
+                                removeAppBlacklist(bundleId, from: m.id)
                             }
-                            .buttonStyle(.plain)
-                            .frame(width: 50, alignment: .center)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(index % 2 == 1 ? Color.gray.opacity(0.1) : Color.clear)
-                        .contentShape(Rectangle())
-                        .onHover { isHovered in
-                            if isHovered {
-                                NSCursor.pointingHand.push()
-                            } else {
-                                NSCursor.pop()
-                            }
-                        }
+                        )
                     }
 
                     Color.clear
                         .frame(height: 20)
                 }
+                .padding(.horizontal, 20)
             }
 
             Divider()
@@ -341,6 +294,9 @@ struct RulesView: View {
                     }
             }
         }
+        .onAppear {
+            refreshRunningApps()
+        }
     }
 
     func applyKeyEdit() {
@@ -361,7 +317,7 @@ struct RulesView: View {
 
     func addMapping() {
         if let a = tmpTrig, let b = tmpTarg {
-            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote))
+            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote, appBlacklist: engine.blacklist))
             tmpTrig = nil
             tmpTarg = nil
             tmpNote = ""
@@ -373,6 +329,460 @@ struct RulesView: View {
             engine.list[idx].note = editingNoteText
         }
         editingNoteId = nil
+    }
+
+    func addAppBlacklist(_ bundleId: String, to id: UUID) {
+        guard let idx = engine.list.firstIndex(where: { $0.id == id }),
+              !engine.list[idx].appBlacklist.contains(bundleId) else { return }
+
+        engine.list[idx].appBlacklist.append(bundleId)
+    }
+
+    func addAppBlacklistFromFinder(to id: UUID) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.message = NSLocalizedString("app.blacklist.select", comment: "")
+
+        guard panel.runModal() == .OK,
+              let url = panel.url,
+              let bundle = Bundle(url: url),
+              let bundleId = bundle.bundleIdentifier else { return }
+
+        addAppBlacklist(bundleId, to: id)
+    }
+
+    func removeAppBlacklist(_ bundleId: String, from id: UUID) {
+        if let idx = engine.list.firstIndex(where: { $0.id == id }) {
+            engine.list[idx].appBlacklist.removeAll { $0 == bundleId }
+        }
+    }
+
+    func addGlobalBlacklistApp(_ bundleId: String) {
+        engine.addGlobalBlacklistApp(bundleId)
+    }
+
+    func addGlobalBlacklistFromFinder() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.message = NSLocalizedString("global.blacklist.select", comment: "")
+
+        guard panel.runModal() == .OK,
+              let url = panel.url,
+              let bundle = Bundle(url: url),
+              let bundleId = bundle.bundleIdentifier else { return }
+
+        addGlobalBlacklistApp(bundleId)
+    }
+
+    func refreshRunningApps() {
+        let currentBundleId = Bundle.main.bundleIdentifier
+        var seen = Set<String>()
+        runningApps = NSWorkspace.shared.runningApplications
+            .compactMap { app -> RunningAppInfo? in
+                guard app.activationPolicy == .regular,
+                      let bundleId = app.bundleIdentifier,
+                      bundleId != currentBundleId,
+                      !seen.contains(bundleId) else { return nil }
+                seen.insert(bundleId)
+                return RunningAppInfo(bundleId: bundleId, name: app.localizedName ?? bundleId)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+}
+
+struct RunningAppInfo: Identifiable {
+    let bundleId: String
+    let name: String
+
+    var id: String { bundleId }
+}
+
+// MARK: - RuleItemRow
+// 映射规则卡片行，展示源按键、目标按键、备注、启用开关和删除按钮。
+
+struct RuleItemRow: View {
+    let mapping: MyMap
+    let isEditingNote: Bool
+    @Binding var editingNoteText: String
+    @Binding var isEnabled: Bool
+    let onEditSource: () -> Void
+    let onEditTarget: () -> Void
+    let onStartEditingNote: () -> Void
+    let onSaveNote: () -> Void
+    let onCancelNote: () -> Void
+    let onDelete: () -> Void
+    let runningApps: [RunningAppInfo]
+    let onAddRunningAppBlacklist: (String) -> Void
+    let onAddAppBlacklistFromFinder: () -> Void
+    let onRemoveAppBlacklist: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        RuleKeyButton(
+                            title: MyMap.getName(mapping.fCode, mapping.fFlags),
+                            foregroundColor: .primary,
+                            action: onEditSource
+                        )
+
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
+
+                        RuleKeyButton(
+                            title: MyMap.getName(mapping.tCode, mapping.tFlags),
+                            foregroundColor: .accentColor,
+                            action: onEditTarget
+                        )
+                    }
+
+                    HStack(spacing: 6) {
+                        Text(NSLocalizedString("rules.note", comment: ""))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+
+                        if isEditingNote {
+                            RuleNoteTextField(
+                                text: $editingNoteText,
+                                placeholder: NSLocalizedString("rules.note.placeholder", comment: ""),
+                                onCommit: onSaveNote,
+                                onCancel: onCancelNote
+                            )
+                            .frame(height: 22)
+                            .padding(.horizontal, 6)
+                            .background(Color(NSColor.textBackgroundColor))
+                            .cornerRadius(5)
+                        } else {
+                            Text(noteText)
+                                .font(.system(size: 10))
+                                .foregroundColor(mapping.note.isEmpty ? .secondary.opacity(0.75) : .secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if !isEditingNote {
+                            onStartEditingNote()
+                        }
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                Toggle("", isOn: $isEnabled)
+                    .toggleStyle(.switch)
+                    .scaleEffect(0.7)
+                    .labelsHidden()
+                    .frame(width: 52, alignment: .center)
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 24, height: 24)
+            }
+
+            RuleAppBlacklistSection(
+                bundleIds: mapping.appBlacklist,
+                runningApps: runningApps,
+                onAddRunningApp: onAddRunningAppBlacklist,
+                onAddFromFinder: onAddAppBlacklistFromFinder,
+                onDelete: onRemoveAppBlacklist
+            )
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private var noteText: String {
+        mapping.note.isEmpty ? NSLocalizedString("rules.note.placeholder", comment: "") : mapping.note
+    }
+}
+
+struct RuleNoteTextField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onCommit: () -> Void
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.isBordered = false
+        textField.drawsBackground = false
+        textField.focusRingType = .none
+        textField.placeholderString = placeholder
+        textField.font = .systemFont(ofSize: 11)
+        textField.delegate = context.coordinator
+        textField.target = context.coordinator
+        textField.action = #selector(Coordinator.commitFromAction)
+
+        DispatchQueue.main.async {
+            textField.window?.makeFirstResponder(textField)
+            context.coordinator.startMonitoring(textField: textField)
+        }
+
+        return textField
+    }
+
+    func updateNSView(_ textField: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        if textField.stringValue != text {
+            textField.stringValue = text
+        }
+        textField.placeholderString = placeholder
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: RuleNoteTextField
+        private weak var textField: NSTextField?
+        private var mouseMonitor: Any?
+        private var isFinishing = false
+
+        init(parent: RuleNoteTextField) {
+            self.parent = parent
+        }
+
+        deinit {
+            stopMonitoring()
+        }
+
+        func startMonitoring(textField: NSTextField) {
+            stopMonitoring()
+            self.textField = textField
+
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+                guard let self, let textField = self.textField else { return event }
+
+                if event.window !== textField.window {
+                    self.commit()
+                    return event
+                }
+
+                let point = textField.convert(event.locationInWindow, from: nil)
+                if !textField.bounds.contains(point) {
+                    self.commit()
+                }
+
+                return event
+            }
+        }
+
+        private func stopMonitoring() {
+            if let mouseMonitor {
+                NSEvent.removeMonitor(mouseMonitor)
+                self.mouseMonitor = nil
+            }
+        }
+
+        @objc func commitFromAction() {
+            commit()
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            parent.text = textField.stringValue
+        }
+
+        func controlTextDidEndEditing(_ notification: Notification) {
+            commit()
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                cancel()
+                return true
+            }
+
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                commit()
+                return true
+            }
+
+            return false
+        }
+
+        private func commit() {
+            guard !isFinishing else { return }
+            isFinishing = true
+            if let textField {
+                parent.text = textField.stringValue
+            }
+            stopMonitoring()
+            parent.onCommit()
+        }
+
+        private func cancel() {
+            guard !isFinishing else { return }
+            isFinishing = true
+            stopMonitoring()
+            parent.onCancel()
+        }
+    }
+}
+
+struct RuleAppBlacklistSection: View {
+    let bundleIds: [String]
+    let runningApps: [RunningAppInfo]
+    let onAddRunningApp: (String) -> Void
+    let onAddFromFinder: () -> Void
+    let onDelete: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+
+            HStack(spacing: 8) {
+                Text(NSLocalizedString("app.blacklist", comment: ""))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                if bundleIds.isEmpty {
+                    Text(NSLocalizedString("app.blacklist.empty", comment: ""))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.75))
+                }
+
+                Spacer()
+
+                Menu {
+                    if runningApps.isEmpty {
+                        Text(NSLocalizedString("app.blacklist.no.running.apps", comment: ""))
+                    } else {
+                        ForEach(runningApps) { app in
+                            Button(action: {
+                                onAddRunningApp(app.bundleId)
+                            }) {
+                                Label(app.name, systemImage: bundleIds.contains(app.bundleId) ? "checkmark" : "app")
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button(action: onAddFromFinder) {
+                        Label(NSLocalizedString("app.blacklist.add.finder", comment: ""), systemImage: "folder")
+                    }
+                } label: {
+                    Label(NSLocalizedString("app.blacklist.add", comment: ""), systemImage: "plus.circle")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .foregroundColor(.accentColor)
+            }
+
+            if !bundleIds.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(bundleIds, id: \.self) { bundleId in
+                        RuleAppBlacklistChip(bundleId: bundleId) {
+                            onDelete(bundleId)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct RuleAppBlacklistChip: View {
+    let bundleId: String
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let icon = appIcon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+            } else {
+                Image(systemName: "app")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .frame(width: 20, height: 20)
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(appName)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                Text(bundleId)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(Color(NSColor.textBackgroundColor).opacity(0.7))
+        .cornerRadius(6)
+    }
+
+    private var appURL: URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId)
+    }
+
+    private var appName: String {
+        guard let appURL,
+              let bundle = Bundle(url: appURL) else { return bundleId }
+        return bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? bundleId
+    }
+
+    private var appIcon: NSImage? {
+        guard let appURL else { return nil }
+        return NSWorkspace.shared.icon(forFile: appURL.path)
+    }
+}
+
+struct RuleKeyButton: View {
+    let title: String
+    let foregroundColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .foregroundColor(foregroundColor)
+        }
+        .buttonStyle(.plain)
+        .help(NSLocalizedString("rules.edit.key", comment: ""))
     }
 }
 

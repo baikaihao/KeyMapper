@@ -9,7 +9,7 @@
 /* Sidebar */
 "sidebar.rules" = "Rules";
 "sidebar.blacklist" = "Blacklist";
-"sidebar.toast" = "Text Toast";
+"sidebar.toast" = "Popup Alert";
 "sidebar.settings" = "Settings";
 "sidebar.about" = "About";
 "sidebar.engine.running" = "Engine Running";
@@ -69,8 +69,8 @@
 "settings.launch.error.title" = "Cannot Set Launch at Login";
 "settings.launch.error.message" = "Try moving the app to the Applications folder and try again.";
 /* Toast Settings */
-"toast.settings.title" = "Text Toast";
-"toast.settings.desc" = "Configure the text shown after a mapping is triggered, including layer and style";
+"toast.settings.title" = "Popup Alert";
+"toast.settings.desc" = "Configure the popup shown after a mapping is triggered, including layer and style";
 "toast.content" = "Content";
 "toast.behavior" = "Behavior";
 "toast.appearance" = "Appearance";
@@ -83,19 +83,19 @@
 "toast.show.note" = "Note";
 "toast.show.note.desc" = "Show the rule note when it is not empty";
 "toast.always.on.top" = "Always on Top";
-"toast.always.on.top.desc" = "Show text toasts above all windows";
+"toast.always.on.top.desc" = "Show popup alerts above all windows";
 "toast.display.duration" = "Display Duration";
 "toast.display.duration.desc" = "How long the toast remains visible";
 "toast.fade.duration" = "Fade Duration";
 "toast.fade.duration.desc" = "How long the fade-out animation takes";
 "toast.bg.color" = "Background Color";
-"toast.bg.color.desc" = "Background color of the toast bubble";
+"toast.bg.color.desc" = "Background color of the popup bubble";
 "toast.text.color" = "Text Color";
-"toast.text.color.desc" = "Color of the toast text";
+"toast.text.color.desc" = "Color of the popup text";
 "toast.corner.radius" = "Corner Radius";
-"toast.corner.radius.desc" = "Corner radius of the toast bubble";
+"toast.corner.radius.desc" = "Corner radius of the popup bubble";
 "toast.font.size" = "Font Size";
-"toast.font.size.desc" = "Text size used by toast content";
+"toast.font.size.desc" = "Text size used by popup content";
 "toast.preview" = "Preview";
 
 /* Auto Backup */
@@ -153,6 +153,12 @@
 "app.blacklist.empty" = "No apps in blacklist";
 "app.blacklist.add" = "Add App";
 "app.blacklist.select" = "Select an app to add to blacklist";
+"app.blacklist.add.finder" = "Choose App in Finder";
+"app.blacklist.no.running.apps" = "No running apps available";
+"global.blacklist.add" = "Add Global Blacklist";
+"global.blacklist.add.finder" = "Choose App in Finder";
+"global.blacklist.select" = "Select an app to add to global blacklist";
+"global.blacklist.no.running.apps" = "No running apps available";
 
 /* Key Picker */
 "keypicker.title" = "Key Selector";
