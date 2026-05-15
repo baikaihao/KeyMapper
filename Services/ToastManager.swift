@@ -92,20 +92,39 @@ class ToastManager {
     private let toastState: ToastState
     private var window: NSPanel?
     private var mouseMonitor: Any?
+    private var isObserving = false
 
     private init() {
         style = ToastStyle().loadFromDefaults()
         toastState = ToastState(style: style)
+        start()
+    }
+
+    func start() {
+        guard !isObserving else { return }
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleMappingTriggered(_:)),
             name: .mappingTriggered, object: nil
         )
+        isObserving = true
+    }
+
+    private var activeScreen: NSScreen {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
     }
 
     private func ensureWindow() {
-        guard window == nil else { return }
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = screen.frame
+        let screenFrame = activeScreen.frame
+
+        if let window {
+            window.setFrame(screenFrame, display: true)
+            window.orderFrontRegardless()
+            return
+        }
+
         let w = NSPanel(
             contentRect: screenFrame,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -116,8 +135,9 @@ class ToastManager {
         w.isOpaque = false
         w.backgroundColor = .clear
         w.hasShadow = false
-        w.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         w.isReleasedWhenClosed = false
+        w.hidesOnDeactivate = false
         w.ignoresMouseEvents = true
         w.contentView = NSHostingView(rootView:
             ToastContainerView(state: toastState)
@@ -144,7 +164,10 @@ class ToastManager {
         let screenHeight = screenFrame.height
         let screenWidth = screenFrame.width
         let mouseScreen = NSEvent.mouseLocation
-        let mouseInWindow = CGPoint(x: mouseScreen.x, y: screenHeight - mouseScreen.y)
+        let mouseInWindow = CGPoint(
+            x: mouseScreen.x - screenFrame.minX,
+            y: screenFrame.maxY - mouseScreen.y
+        )
         let padding: CGFloat = 20
         let itemSpacing: CGFloat = 10
         let style = toastState.style

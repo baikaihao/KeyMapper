@@ -9,6 +9,7 @@ class MappingStore {
         static let maps = "saved_maps"
         static let pauseHotkey = "setting_pause_hotkey"
         static let blacklist = "setting_blacklist"
+        static let globalBlacklistMigrated = "setting_global_blacklist_migrated_to_rules"
     }
 
     static let defaultPauseHotkey: (keyCode: UInt16, flags: UInt64) = (6, 0x120000)
@@ -60,5 +61,17 @@ class MappingStore {
             return decoded
         }
         return []
+    }
+
+    func clearBlacklist() {
+        defaults.removeObject(forKey: Key.blacklist)
+    }
+
+    func hasMigratedGlobalBlacklist() -> Bool {
+        defaults.bool(forKey: Key.globalBlacklistMigrated)
+    }
+
+    func markGlobalBlacklistMigrated() {
+        defaults.set(true, forKey: Key.globalBlacklistMigrated)
     }
 }

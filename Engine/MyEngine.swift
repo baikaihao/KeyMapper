@@ -12,12 +12,12 @@ extension Notification.Name {
 //
 // 工作流程：
 // 1. 使用 CGEvent.tapCreate 在系统级别创建键盘事件监听（keyDown/keyUp）
-// 2. 在回调中按优先级依次检查：自身事件 → 录制模式 → 自身应用 → 暂停热键 → 暂停状态 → 黑名单
+// 2. 在回调中按优先级依次检查：自身事件 → 录制模式 → 自身应用 → 暂停热键 → 暂停状态 → 规则级黑名单
 // 3. 匹配映射规则后，构造新的 CGEvent 发送映射后的按键事件
 // 4. 同一按键映射到多个目标时，弹出径向选择轮盘（RadialWheel）
 //
 // 数据持久化：
-// - 映射规则、暂停热键、黑名单均通过 UserDefaults + JSON 编码持久化
+// - 映射规则、全局默认黑名单、暂停热键均通过 UserDefaults + JSON 编码持久化
 
 class MyEngine: ObservableObject {
     static let shared = MyEngine()
@@ -56,6 +56,7 @@ class MyEngine: ObservableObject {
         list = MappingStore.shared.loadList()
         pauseHotkey = MappingStore.shared.loadPauseHotkey()
         blacklist = MappingStore.shared.loadBlacklist()
+        applyGlobalBlacklistToRulesIfNeeded()
         checkAccessibility()
         start()
     }
@@ -110,7 +111,8 @@ class MyEngine: ObservableObject {
                 "tCode": $0.tCode,
                 "tFlags": $0.tFlags,
                 "isOn": $0.isOn,
-                "note": $0.note
+                "note": $0.note,
+                "appBlacklist": $0.appBlacklist
             ]},
             "blacklist": blacklist,
             "pauseHotkey": pauseHotkey.map { [
@@ -181,12 +183,6 @@ class MyEngine: ObservableObject {
                 return Unmanaged.passUnretained(event)
             }
 
-            if let frontApp = NSWorkspace.shared.frontmostApplication,
-               let bundleId = frontApp.bundleIdentifier,
-               MyEngine.shared.blacklist.contains(bundleId) {
-                return Unmanaged.passUnretained(event)
-            }
-
             let currentModifiers = f & ModifierKey.allMask
 
             if type == .keyDown {
@@ -249,8 +245,12 @@ class MyEngine: ObservableObject {
             multiMappingState = nil
         }
 
+        let frontBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         let matches = list.filter {
-            $0.isOn && $0.fCode == keyCode && ($0.fFlags & ModifierKey.allMask) == modifiers
+            $0.isOn
+                && $0.fCode == keyCode
+                && ($0.fFlags & ModifierKey.allMask) == modifiers
+                && !isRuleBlacklisted($0, for: frontBundleId)
         }
 
         if matches.count > 1 {
@@ -300,5 +300,48 @@ class MyEngine: ObservableObject {
         }
 
         return Unmanaged.passUnretained(originalEvent)
+    }
+
+    private func isRuleBlacklisted(_ mapping: MyMap, for bundleId: String?) -> Bool {
+        guard let bundleId else { return false }
+        return mapping.appBlacklist.contains(bundleId)
+    }
+
+    func addGlobalBlacklistApp(_ bundleId: String) {
+        var didChange = false
+
+        if !blacklist.contains(bundleId) {
+            blacklist.append(bundleId)
+            didChange = true
+        }
+
+        for idx in list.indices where !list[idx].appBlacklist.contains(bundleId) {
+            list[idx].appBlacklist.append(bundleId)
+            didChange = true
+        }
+
+        if didChange {
+            MappingStore.shared.saveList(list)
+        }
+    }
+
+    private func applyGlobalBlacklistToRulesIfNeeded() {
+        guard !blacklist.isEmpty,
+              !MappingStore.shared.hasMigratedGlobalBlacklist() else { return }
+
+        var didChange = false
+        for idx in list.indices {
+            let beforeCount = list[idx].appBlacklist.count
+            list[idx].mergeAppBlacklist(blacklist)
+            if list[idx].appBlacklist.count != beforeCount {
+                didChange = true
+            }
+        }
+
+        if didChange {
+            MappingStore.shared.saveList(list)
+        }
+
+        MappingStore.shared.markGlobalBlacklistMigrated()
     }
 }

@@ -9,7 +9,7 @@ import ServiceManagement
 // 1. 创建系统状态栏图标（暂停时半透明显示）
 // 2. 创建主窗口（NSWindow + NSHostingView 承载 ContentView）
 // 3. 管理菜单栏菜单（显示窗口、暂停/恢复引擎、退出）
-// 4. 监听引擎激活状态，未激活时窗口置顶浮动以提示用户授权
+// 4. 监听引擎激活状态，按启动策略调度主窗口显示
 // 5. 支持 Dock 图标隐藏模式（.accessory 策略）
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
@@ -25,12 +25,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     // 是否为登录时启动（开机自启模式下不主动弹窗）
     private var isLaunchAtLogin = false
 
+    private enum MainWindowPresentation {
+        case appLaunch
+        case userRequested
+        case engineBecameActive
+    }
+
     // MARK: - 应用生命周期
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBarIcon()
         // 触发 MyEngine 单例初始化，加载映射规则并启动键盘事件监听
         _ = MyEngine.shared
+        // 登录时启动不会打开设置页，因此弹窗提示管理器必须在启动阶段注册监听。
+        ToastManager.shared.start()
 
         syncAndRecordLaunchAtLogin()
 
@@ -153,37 +161,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         hostingView.autoresizingMask = [.width, .height]
         window.contentView = hostingView
 
-        // 引擎未激活（未授权辅助功能）时，窗口置顶浮动以提示用户
-        if !MyEngine.shared.isActive {
-            window.level = .floating
-        }
-
         mainWindow = window
+        applyMainWindowLevel(to: window)
 
-        // 以下情况不自动显示窗口：
-        // 1. 隐藏 Dock 模式（仅菜单栏访问）
-        // 2. 登录时启动模式（开机静默运行，避免弹窗打扰）
-        let hideDock = UserDefaults.standard.bool(forKey: "setting_hide_dock")
-        let launchAtLogin = UserDefaults.standard.bool(forKey: "setting_launch_at_login")
-        if !hideDock && !launchAtLogin {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+        presentMainWindow(.appLaunch)
+    }
+
+    private var shouldAutoPresentMainWindow: Bool {
+        !UserDefaults.standard.bool(forKey: "setting_hide_dock") && !isLaunchAtLogin
+    }
+
+    private func applyMainWindowLevel(to targetWindow: NSWindow? = nil) {
+        guard let window = targetWindow ?? mainWindow else { return }
+        window.level = .normal
+    }
+
+    private func presentMainWindow(_ presentation: MainWindowPresentation) {
+        guard let window = mainWindow else { return }
+        applyMainWindowLevel(to: window)
+
+        switch presentation {
+        case .appLaunch, .engineBecameActive:
+            guard shouldAutoPresentMainWindow else { return }
+        case .userRequested:
+            NSApp.setActivationPolicy(.regular)
         }
+
+        if window.isMiniaturized {
+            window.deminiaturize(nil)
+        }
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // 监听引擎激活状态变化：
     // - 激活时：窗口恢复普通层级
-    // - 未激活时：窗口置顶浮动，提醒用户需要授权
+    // - 未激活时：保持普通窗口层级，仅通过界面内容提醒用户授权
     // 登录自启模式下，即使引擎激活也不主动弹窗，避免打扰用户
     private func setupEngineObserver() {
         MyEngine.shared.$isActive
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isActive in
-                guard let self = self, let window = self.mainWindow else { return }
-                window.level = isActive ? .normal : .floating
-                if isActive && !self.isLaunchAtLogin {
-                    NSApp.activate(ignoringOtherApps: true)
-                    window.makeKeyAndOrderFront(nil)
+                guard let self = self else { return }
+                self.applyMainWindowLevel()
+                if isActive {
+                    self.presentMainWindow(.engineBecameActive)
                 }
             }
             .store(in: &cancellables)
@@ -191,15 +214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     // 显示主窗口：恢复 Dock 图标、解除最小化、前置窗口
     @objc func showMainWindow() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-
-        if let window = mainWindow {
-            if window.isMiniaturized {
-                window.deminiaturize(nil)
-            }
-            window.makeKeyAndOrderFront(nil)
-        }
+        presentMainWindow(.userRequested)
     }
 
     // MARK: - NSWindowDelegate
