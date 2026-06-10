@@ -20,6 +20,7 @@ class ToastState: ObservableObject {
     @Published var items: [ToastItem] = []
     private var removingIds: Set<UUID> = []
     var style: ToastStyle
+    var onBecameEmpty: (() -> Void)?
 
     init(style: ToastStyle) {
         self.style = style
@@ -75,6 +76,9 @@ class ToastState: ObservableObject {
             withAnimation(.easeIn(duration: 0.15)) {
                 self.items.removeAll { $0.id == item.id }
             }
+            if self.items.isEmpty {
+                self.onBecameEmpty?()
+            }
         }
     }
 }
@@ -97,6 +101,9 @@ class ToastManager {
     private init() {
         style = ToastStyle().loadFromDefaults()
         toastState = ToastState(style: style)
+        toastState.onBecameEmpty = { [weak self] in
+            self?.closeWindow()
+        }
         start()
     }
 
@@ -147,6 +154,15 @@ class ToastManager {
 
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
             self?.checkMouseHover()
+        }
+    }
+
+    private func closeWindow() {
+        window?.orderOut(nil)
+        window = nil
+        if let mouseMonitor {
+            NSEvent.removeMonitor(mouseMonitor)
+            self.mouseMonitor = nil
         }
     }
 
