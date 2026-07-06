@@ -43,8 +43,8 @@ class MyEngine: ObservableObject {
     private var authTimer: Timer?
     // 多映射状态：当同一按键映射到多个目标时，暂存匹配结果等待用户选择
     private var multiMappingState: (keyCode: UInt16, flags: UInt64, matches: [MyMap])?
-    // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp。
-    private var activeSingleMappings: [UInt16: MyMap] = [:]
+    // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp 并恢复修饰键状态。
+    private var activeSingleMappings: [UInt16: ActiveMapping] = [:]
     // 径向选择轮盘是否正在显示
     private var isWheelShowing: Bool = false
     // 自身应用的 Bundle ID，用于在回调中过滤自身应用的按键事件
@@ -126,19 +126,79 @@ class MyEngine: ObservableObject {
 
     private static let eventTag: Int64 = 12345
 
+    private struct ActiveMapping {
+        let mapping: MyMap
+        let targetModifiers: UInt64
+    }
+
+    private static let modifierKeyCodes: [(key: ModifierKey, code: UInt16)] = [
+        (.shift, 56),
+        (.control, 59),
+        (.option, 58),
+        (.command, 55)
+    ]
+
+    private static func postEvent(_ event: CGEvent, proxy: CGEventTapProxy) {
+        event.setIntegerValueField(.eventSourceUserData, value: eventTag)
+        event.post(tap: .cghidEventTap)
+    }
+
     private static func postMappedKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false) {
-        let source = CGEventSource(stateID: .combinedSessionState)
+        let source = CGEventSource(stateID: .hidSystemState)
         if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
             e.flags = CGEventFlags(rawValue: flags)
             e.setIntegerValueField(.keyboardEventAutorepeat, value: isAutorepeat ? 1 : 0)
-            e.setIntegerValueField(.eventSourceUserData, value: eventTag)
-            e.tapPostEvent(proxy)
+            postEvent(e, proxy: proxy)
         }
+    }
+
+    private static func postModifierKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
+            e.flags = CGEventFlags(rawValue: flags)
+            postEvent(e, proxy: proxy)
+        }
+    }
+
+    private static func postModifierTransition(proxy: CGEventTapProxy, from currentFlags: UInt64, to targetFlags: UInt64) {
+        var activeFlags = currentFlags & ModifierKey.allMask
+        let targetFlags = targetFlags & ModifierKey.allMask
+
+        for item in modifierKeyCodes.reversed() where (activeFlags & item.key.flagValue) != 0 && (targetFlags & item.key.flagValue) == 0 {
+            activeFlags &= ~item.key.flagValue
+            postModifierKey(proxy: proxy, code: item.code, flags: activeFlags, keyDown: false)
+        }
+
+        for item in modifierKeyCodes where (activeFlags & item.key.flagValue) == 0 && (targetFlags & item.key.flagValue) != 0 {
+            activeFlags |= item.key.flagValue
+            postModifierKey(proxy: proxy, code: item.code, flags: activeFlags, keyDown: true)
+        }
+    }
+
+    private static func postMappedKeyDownWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, sourceModifiers: UInt64, isAutorepeat: Bool) -> UInt64 {
+        let targetModifiers = mapping.tFlags & ModifierKey.allMask
+        if !isAutorepeat {
+            postModifierTransition(proxy: proxy, from: sourceModifiers, to: targetModifiers)
+        }
+        postMappedKey(proxy: proxy, code: mapping.tCode, flags: targetModifiers, keyDown: true, isAutorepeat: isAutorepeat)
+        return targetModifiers
+    }
+
+    private static func postMappedKeyUpWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, targetModifiers: UInt64, restoreModifiers: UInt64) {
+        postMappedKey(proxy: proxy, code: mapping.tCode, flags: targetModifiers, keyDown: false)
+        postModifierTransition(proxy: proxy, from: targetModifiers, to: restoreModifiers)
     }
 
     private static func postMappedKeyPair(proxy: CGEventTapProxy, code: UInt16, flags: UInt64) {
         postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: true)
         postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: false)
+    }
+
+    private static func postMappedKeyPairWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, sourceModifiers: UInt64, restoreModifiers: UInt64) {
+        let targetModifiers = mapping.tFlags & ModifierKey.allMask
+        postModifierTransition(proxy: proxy, from: sourceModifiers, to: targetModifiers)
+        postMappedKeyPair(proxy: proxy, code: mapping.tCode, flags: targetModifiers)
+        postModifierTransition(proxy: proxy, from: targetModifiers, to: restoreModifiers)
     }
 
     private func shouldHandleMappedKeyUp(keyCode: UInt16) -> Bool {
@@ -236,7 +296,7 @@ class MyEngine: ObservableObject {
                 isWheelShowing = false
             }
             let m = state.matches[0]
-            Self.postMappedKeyPair(proxy: proxy, code: m.tCode, flags: m.tFlags)
+            Self.postMappedKeyPairWithModifierBridge(proxy: proxy, mapping: m, sourceModifiers: state.flags, restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask)
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -260,8 +320,8 @@ class MyEngine: ObservableObject {
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
-            activeSingleMappings[keyCode] = m
-            Self.postMappedKey(proxy: proxy, code: m.tCode, flags: m.tFlags, keyDown: true, isAutorepeat: isAutorepeat)
+            let targetModifiers = Self.postMappedKeyDownWithModifierBridge(proxy: proxy, mapping: m, sourceModifiers: modifiers, isAutorepeat: isAutorepeat)
+            activeSingleMappings[keyCode] = ActiveMapping(mapping: m, targetModifiers: targetModifiers)
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -274,8 +334,13 @@ class MyEngine: ObservableObject {
     }
 
     private func handleKeyUp(proxy: CGEventTapProxy, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
-        if let mapping = activeSingleMappings.removeValue(forKey: keyCode) {
-            Self.postMappedKey(proxy: proxy, code: mapping.tCode, flags: mapping.tFlags, keyDown: false)
+        if let activeMapping = activeSingleMappings.removeValue(forKey: keyCode) {
+            Self.postMappedKeyUpWithModifierBridge(
+                proxy: proxy,
+                mapping: activeMapping.mapping,
+                targetModifiers: activeMapping.targetModifiers,
+                restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
+            )
             return nil
         }
 
@@ -289,7 +354,12 @@ class MyEngine: ObservableObject {
                 mapping = state.matches[0]
             }
 
-            Self.postMappedKeyPair(proxy: proxy, code: mapping.tCode, flags: mapping.tFlags)
+            Self.postMappedKeyPairWithModifierBridge(
+                proxy: proxy,
+                mapping: mapping,
+                sourceModifiers: state.flags,
+                restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
+            )
             if let idx = list.firstIndex(where: { $0.id == mapping.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])

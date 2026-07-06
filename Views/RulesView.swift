@@ -41,6 +41,22 @@ struct RulesView: View {
                 Spacer()
 
                 Menu {
+                    Button(action: addMissingDefaultRules) {
+                        Label(NSLocalizedString("default.rules.add.missing", comment: ""), systemImage: "plus.circle")
+                    }
+                    .disabled(!hasMissingDefaultRules)
+
+                    Button(action: confirmResetDefaultRules) {
+                        Label(NSLocalizedString("default.rules.reset", comment: ""), systemImage: "arrow.counterclockwise")
+                    }
+                } label: {
+                    Label(NSLocalizedString("default.rules.manage", comment: ""), systemImage: "rectangle.stack.badge.gearshape")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+
+                Menu {
                     if runningApps.isEmpty {
                         Text(NSLocalizedString("global.blacklist.no.running.apps", comment: ""))
                     } else {
@@ -322,6 +338,46 @@ struct RulesView: View {
             tmpTarg = nil
             tmpNote = ""
         }
+    }
+
+    var hasMissingDefaultRules: Bool {
+        defaultRulesWithGlobalBlacklist.contains { defaultRule in
+            !engine.list.contains { isSameRule($0, defaultRule) }
+        }
+    }
+
+    func addMissingDefaultRules() {
+        for defaultRule in defaultRulesWithGlobalBlacklist where !engine.list.contains(where: { isSameRule($0, defaultRule) }) {
+            engine.list.append(defaultRule)
+        }
+    }
+
+    func confirmResetDefaultRules() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("default.rules.reset.title", comment: "")
+        alert.informativeText = NSLocalizedString("default.rules.reset.message", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("default.rules.reset.confirm", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("cancel", comment: ""))
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            engine.list = defaultRulesWithGlobalBlacklist
+        }
+    }
+
+    private var defaultRulesWithGlobalBlacklist: [MyMap] {
+        MappingStore.defaultMappings().map { rule in
+            var rule = rule
+            rule.mergeAppBlacklist(engine.blacklist)
+            return rule
+        }
+    }
+
+    private func isSameRule(_ lhs: MyMap, _ rhs: MyMap) -> Bool {
+        lhs.fCode == rhs.fCode
+            && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
+            && lhs.tCode == rhs.tCode
+            && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
     }
 
     func saveNote(for id: UUID) {
