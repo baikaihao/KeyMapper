@@ -33,6 +33,18 @@
 "rules.note" = "Note";
 "rules.note.placeholder" = "Add note...";
 "rules.edit.key" = "Edit Key";
+"default.rules.manage" = "Default Rules";
+"default.rules.add.missing" = "Add Missing Default Rules";
+"default.rules.reset" = "Reset to Default Rules";
+"default.rules.reset.title" = "Reset default rules?";
+"default.rules.reset.message" = "The current rule list will be replaced with the default rules. This will not change the global blacklist.";
+"default.rules.reset.confirm" = "Reset";
+"default.rule.copy" = "Copy";
+"default.rule.select.all" = "Select All";
+"default.rule.paste" = "Paste";
+"default.rule.delete.file" = "Delete File";
+"default.rule.undo" = "Undo";
+"default.rule.cut" = "Cut";
 
 /* Blacklist View */
 "blacklist.title" = "Blacklist Management";
