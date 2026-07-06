@@ -33,6 +33,18 @@
 "rules.note" = "备注";
 "rules.note.placeholder" = "添加备注...";
 "rules.edit.key" = "修改按键";
+"default.rules.manage" = "默认规则管理";
+"default.rules.add.missing" = "补齐缺失默认规则";
+"default.rules.reset" = "重置为默认规则";
+"default.rules.reset.title" = "重置默认规则？";
+"default.rules.reset.message" = "当前规则列表会被替换为默认规则。此操作不会修改全局黑名单。";
+"default.rules.reset.confirm" = "重置";
+"default.rule.copy" = "复制";
+"default.rule.select.all" = "全选";
+"default.rule.paste" = "粘贴";
+"default.rule.delete.file" = "删除文件";
+"default.rule.undo" = "撤回";
+"default.rule.cut" = "剪切";
 
 /* Blacklist View */
 "blacklist.title" = "黑名单管理";
