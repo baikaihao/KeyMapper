@@ -48,9 +48,14 @@
 
 /* Blacklist View */
 "blacklist.title" = "Blacklist Management";
-"blacklist.desc" = "KeyMapper will automatically pause all mapping rules when blacklisted applications are running to prevent conflicts with native shortcuts.";
-"blacklist.add" = "Add Application to Blacklist";
+"blacklist.desc" = "All mappings pause while a globally blacklisted app is in front. Per-rule app blacklists continue to apply independently.";
+"blacklist.add" = "Add Application";
+"blacklist.add.finder" = "Choose App in Finder";
 "blacklist.select.app" = "Select an app to add to blacklist";
+"blacklist.empty.title" = "Global Blacklist Is Empty";
+"blacklist.empty.desc" = "Add an app to pause all mappings whenever that app is in front.";
+"blacklist.count" = "%d applications";
+"blacklist.refresh" = "Refresh running applications";
 
 /* Settings View */
 "settings.general" = "General";
@@ -64,6 +69,8 @@
 "settings.pause.hotkey.desc" = "Press hotkey to toggle engine pause/resume";
 "settings.waiting.input" = "Waiting for input...";
 "settings.record" = "Record Hotkey";
+"settings.change.hotkey" = "Change";
+"settings.reset.hotkey" = "Restore Default Hotkey";
 "settings.accessibility" = "Accessibility Permission";
 "settings.accessibility.desc" = "Select KeyMapper in the list, click '-' to remove it, then click the button on the right to request authorization again, and finally check the box in System Settings. Note: the accessibility permission dialog may be hidden behind the application window.";
 "settings.authorized" = "Authorized";
@@ -78,6 +85,22 @@
 "settings.import.success.title" = "Import Successful";
 "settings.import.success.message" = "Successfully imported %d mapping rules";
 "settings.import.error.title" = "Import Failed";
+"settings.import.confirm.title" = "Replace Current Configuration?";
+"settings.import.confirm.message" = "This will import %d mapping rules and replace the current configuration. The current configuration will be backed up first.";
+"settings.import.confirm.action" = "Back Up and Import";
+"settings.import.backup.error.title" = "Import Cancelled";
+"settings.import.backup.error.message" = "The current configuration could not be backed up. No changes were applied to prevent data loss.";
+"settings.import.error.file.too.large" = "The configuration file is too large to import safely.";
+"settings.import.error.invalid.format" = "The configuration format is invalid, incomplete, or contains fields of the wrong type. No existing configuration was changed.";
+"settings.import.error.unsupported.version" = "Configuration version %@ is not supported.";
+"settings.import.error.too.many.mappings" = "The configuration contains too many mapping rules.";
+"settings.import.error.duplicate.id" = "The configuration contains a duplicate rule ID: %@.";
+"settings.import.error.invalid.mapping" = "Mapping rule %d contains an out-of-range key code or key flags value.";
+"settings.import.error.invalid.note" = "The note in mapping rule %d is too long.";
+"settings.import.error.invalid.rule.blacklist" = "Mapping rule %d contains an invalid or duplicate app blacklist entry.";
+"settings.import.error.invalid.blacklist" = "The configuration contains an invalid or duplicate global blacklist entry.";
+"settings.import.error.invalid.hotkey" = "The pause hotkey in the configuration contains an out-of-range value.";
+"settings.import.error.persistence" = "The imported configuration could not be saved. No in-memory changes were applied.";
 "settings.launch.error.title" = "Cannot Set Launch at Login";
 "settings.launch.error.message" = "Try moving the app to the Applications folder and try again.";
 /* Toast Settings */
@@ -125,6 +148,9 @@
 "settings.last.backup" = "Last Backup";
 "settings.never" = "Never";
 "settings.backup.now" = "Backup Now";
+"settings.backup.in.progress" = "Backing Up...";
+"settings.next.backup" = "Next Backup";
+"settings.backup.error" = "Last Backup Failed";
 "settings.select" = "Select";
 "settings.days" = "days";
 "settings.backup.select.folder" = "Select a folder for backups";
@@ -184,6 +210,13 @@
 "keypicker.no.selection" = "No key selected";
 "keypicker.confirm" = "Confirm";
 "keypicker.cancel" = "Cancel";
+"keypicker.key.space" = "Space";
+"keypicker.key.home" = "Home";
+"keypicker.key.end" = "End";
+"keypicker.key.pageup" = "PgUp";
+"keypicker.key.pagedown" = "PgDn";
+"keypicker.key.numpad" = "Num";
+"keypicker.key.clear" = "Clear";
 "rules.pick.key" = "Select key visually";
 
 /* Launch at Login Error */

@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 struct BlacklistView: View {
     @StateObject var engine = MyEngine.shared
+    @State private var runningApps: [RunningAppInfo] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,25 +28,75 @@ struct BlacklistView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 16)
 
-                // 黑名单应用列表
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(engine.blacklist, id: \.self) { bundleId in
-                            BlacklistItemRow(bundleId: bundleId) {
-                                engine.blacklist.removeAll { $0 == bundleId }
+                if engine.blacklist.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "checkmark.shield")
+                            .font(.system(size: 30, weight: .light))
+                            .foregroundColor(.secondary)
+
+                        Text(NSLocalizedString("blacklist.empty.title", comment: ""))
+                            .font(.system(size: 13, weight: .medium))
+
+                        Text(NSLocalizedString("blacklist.empty.desc", comment: ""))
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(24)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(engine.blacklist, id: \.self) { bundleId in
+                                BlacklistItemRow(bundleId: bundleId) {
+                                    engine.blacklist.removeAll { $0 == bundleId }
+                                }
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
                     }
-                    .padding(.horizontal, 20)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             Divider()
 
-            // 添加应用按钮
             HStack {
+                Text(String(format: NSLocalizedString("blacklist.count", comment: ""), engine.blacklist.count))
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+
                 Spacer()
-                Button(action: addApp) {
+
+                Button(action: refreshRunningApps) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+                .help(NSLocalizedString("blacklist.refresh", comment: ""))
+
+                Menu {
+                    if runningApps.isEmpty {
+                        Text(NSLocalizedString("global.blacklist.no.running.apps", comment: ""))
+                    } else {
+                        ForEach(runningApps) { app in
+                            Button(action: { engine.addGlobalBlacklistApp(app.bundleId) }) {
+                                Label(
+                                    app.name,
+                                    systemImage: engine.blacklist.contains(app.bundleId) ? "checkmark" : "app"
+                                )
+                            }
+                            .disabled(engine.blacklist.contains(app.bundleId))
+                        }
+                    }
+
+                    Divider()
+
+                    Button(action: addApp) {
+                        Label(NSLocalizedString("blacklist.add.finder", comment: ""), systemImage: "folder")
+                    }
+                } label: {
                     Label(NSLocalizedString("blacklist.add", comment: ""), systemImage: "plus.circle.fill")
                         .font(.system(size: 13, weight: .medium))
                 }
@@ -54,6 +105,7 @@ struct BlacklistView: View {
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
         }
+        .onAppear(perform: refreshRunningApps)
     }
 
     // 通过 NSOpenPanel 选择 .app 文件添加到黑名单。
@@ -68,12 +120,24 @@ struct BlacklistView: View {
         if panel.runModal() == .OK, let url = panel.url {
             if let bundle = Bundle(url: url),
                let bundleId = bundle.bundleIdentifier {
-                // 避免重复添加
-                if !engine.blacklist.contains(bundleId) {
-                    engine.blacklist.append(bundleId)
-                }
+                engine.addGlobalBlacklistApp(bundleId)
             }
         }
+    }
+
+    private func refreshRunningApps() {
+        let currentBundleId = Bundle.main.bundleIdentifier
+        var seen = Set<String>()
+        runningApps = NSWorkspace.shared.runningApplications
+            .compactMap { app -> RunningAppInfo? in
+                guard app.activationPolicy == .regular,
+                      let bundleId = app.bundleIdentifier,
+                      bundleId != currentBundleId,
+                      !seen.contains(bundleId) else { return nil }
+                seen.insert(bundleId)
+                return RunningAppInfo(bundleId: bundleId, name: app.localizedName ?? bundleId)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }
 
@@ -125,11 +189,11 @@ struct BlacklistItemRow: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
         )
         .onHover { hovering in

@@ -38,10 +38,18 @@ struct KeyLogic: NSViewRepresentable {
         if let kv = nsView as? KV {
             if (r1 || r2) && kv.window?.firstResponder != kv {
                 DispatchQueue.main.async {
+                    guard context.coordinator.r1 || context.coordinator.r2 else { return }
                     kv.window?.makeFirstResponder(kv)
                 }
+            } else if !r1 && !r2 && kv.window?.firstResponder === kv {
+                kv.window?.makeFirstResponder(nil)
             }
         }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        guard let kv = nsView as? KV, kv.window?.firstResponder === kv else { return }
+        kv.window?.makeFirstResponder(nil)
     }
 
     // MARK: - Coordinator
@@ -81,13 +89,26 @@ class KV: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        self.window?.makeFirstResponder(self)
+        guard coordinator.r1 || coordinator.r2 else {
+            super.mouseDown(with: event)
+            return
+        }
+        window?.makeFirstResponder(self)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let didResign = super.resignFirstResponder()
+        if didResign && (coordinator.r1 || coordinator.r2) {
+            coordinator.r1 = false
+            coordinator.r2 = false
+        }
+        return didResign
     }
 
     // 处理捕获的按键事件：提取 keyCode 和 modifierFlags，写入绑定变量
     private func handleKeyEvent(_ event: NSEvent) {
         let code = UInt16(event.keyCode)
-        let flags = UInt64(event.modifierFlags.rawValue)
+        let flags = UInt64(event.modifierFlags.rawValue) & ModifierKey.allMask
 
         if coordinator.r1 == true {
             coordinator.t1 = (code, flags)
@@ -104,13 +125,13 @@ class KV: NSView {
     }
 
     // 按键事件处理。
-    // 录制模式下捕获按键并吞掉事件；非录制模式下也吞掉事件（KV 是背景视图，不应传递事件），
-    // 避免调用 super.keyDown → interpretKeyEvents → doCommandBySelector → NSBeep 链路。
+    // 录制模式下捕获并吞掉事件；若异常残留为第一响应者，则先主动释放。
     override func keyDown(with e: NSEvent) {
         if coordinator.r1 == true || coordinator.r2 == true {
             handleKeyEvent(e)
+        } else if window?.firstResponder === self {
+            window?.makeFirstResponder(nil)
         }
-        // 永不调用 super.keyDown(with:)，防止系统蜂鸣
     }
 
     // 拦截修饰键组合事件（如 ⌘+A、⌃+C 等）。

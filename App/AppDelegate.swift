@@ -24,6 +24,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     private var cancellables = Set<AnyCancellable>()
     // 是否为登录时启动（开机自启模式下不主动弹窗）
     private var isLaunchAtLogin = false
+    // 仅首次从不可用变为可用时允许自动展示窗口，Tap 临时恢复不得抢焦点。
+    private var hasEverActivatedEngine = false
 
     private enum MainWindowPresentation {
         case appLaunch
@@ -37,6 +39,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         setupMenuBarIcon()
         // 触发 MyEngine 单例初始化，加载映射规则并启动键盘事件监听
         _ = MyEngine.shared
+        // 自动备份不能依赖设置页创建；应用启动时即恢复备份调度。
+        _ = BackupManager.shared
         // 登录时启动不会打开设置页，因此弹窗提示管理器必须在启动阶段注册监听。
         ToastManager.shared.start()
 
@@ -57,6 +61,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMainWindow()
         return false
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        cancelKeyRecording()
     }
 
     static func syncLaunchAtLoginState() {
@@ -200,12 +208,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     // - 未激活时：保持普通窗口层级，仅通过界面内容提醒用户授权
     // 登录自启模式下，即使引擎激活也不主动弹窗，避免打扰用户
     private func setupEngineObserver() {
+        hasEverActivatedEngine = MyEngine.shared.isActive
+
         MyEngine.shared.$isActive
+            .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isActive in
                 guard let self = self else { return }
                 self.applyMainWindowLevel()
-                if isActive {
+                if isActive && !self.hasEverActivatedEngine {
+                    self.hasEverActivatedEngine = true
                     self.presentMainWindow(.engineBecameActive)
                 }
             }
@@ -219,8 +231,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     // MARK: - NSWindowDelegate
 
+    func windowDidResignKey(_ notification: Notification) {
+        cancelKeyRecording()
+    }
+
     // 关闭按钮行为：仅隐藏窗口而非销毁，并在隐藏 Dock 模式下切换为 .accessory 策略
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        cancelKeyRecording()
         sender.orderOut(nil)
 
         if UserDefaults.standard.bool(forKey: "setting_hide_dock") {
@@ -230,6 +247,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         }
 
         return false
+    }
+
+    private func cancelKeyRecording() {
+        MyEngine.shared.isRecording = false
+        NotificationCenter.default.post(name: .cancelKeyRecording, object: nil)
     }
 
     // MARK: - 菜单动作
