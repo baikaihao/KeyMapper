@@ -86,6 +86,8 @@
 "toast.content" = "Content";
 "toast.behavior" = "Behavior";
 "toast.appearance" = "Appearance";
+"toast.enabled" = "Enable Popup Alerts";
+"toast.enabled.desc" = "Show a popup alert when a mapping is triggered";
 "toast.show.from.key" = "Original Key";
 "toast.show.from.key.desc" = "Show the original key that triggered the mapping";
 "toast.show.arrow" = "Arrow";

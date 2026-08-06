@@ -89,7 +89,11 @@ class ToastManager {
     var style: ToastStyle {
         didSet {
             style.saveToDefaults()
+            toastState.style = style
             applyWindowLevel()
+            if !style.isEnabled {
+                toastState.fadeAll()
+            }
         }
     }
 
@@ -209,6 +213,7 @@ class ToastManager {
     }
 
     @objc private func handleMappingTriggered(_ notification: Notification) {
+        guard style.isEnabled else { return }
         guard let index = notification.userInfo?["index"] as? Int else { return }
         let engine = MyEngine.shared
         guard index < engine.list.count else { return }
@@ -223,6 +228,7 @@ class ToastManager {
     }
 
     func showToast(text: String) {
+        guard style.isEnabled else { return }
         ensureWindow()
         toastState.style = style
         toastState.addToast(text: text)
