@@ -235,6 +235,7 @@ class ToastManager {
     }
 
     func previewToast() {
+        guard style.isEnabled else { return }
         ensureWindow()
         toastState.style = style
         let sampleText = style.assembleText(fromName: "⌃ A", toName: "⌘ C", note: "复制")

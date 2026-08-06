@@ -73,12 +73,6 @@ struct MyMap: Identifiable, Codable {
         appBlacklist = try container.decodeIfPresent([String].self, forKey: .appBlacklist) ?? []
     }
 
-    mutating func mergeAppBlacklist(_ bundleIds: [String]) {
-        for bundleId in bundleIds where !appBlacklist.contains(bundleId) {
-            appBlacklist.append(bundleId)
-        }
-    }
-
     // MARK: - 按键名称转换
 
     // 将 keyCode + flags 转换为人类可读的字符串表示。
@@ -89,11 +83,32 @@ struct MyMap: Identifiable, Codable {
         0:  "A ", 1:  "S ", 2:  "D ", 3:  "F ", 4:  "H ", 5:  "G ", 6:  "Z ", 7:  "X ", 8:  "C ", 9:  "V ",
         11:  "B ", 12:  "Q ", 13:  "W ", 14:  "E ", 15:  "R ", 16:  "Y ", 17:  "T ", 18:  "1 ", 19:  "2 ",
         20:  "3 ", 21:  "4 ", 22:  "6 ", 23:  "5 ", 24:  "= ", 25:  "9 ", 26:  "7 ", 27:  "-", 28:  "8 ",
-        29:  "0 ", 30:  "] ", 31:  "O ", 32:  "U ", 33:  "[ ", 34:  "I ", 35:  "P ", 37:  "L ", 38:  "J ",
+        29:  "0 ", 30:  "] ", 31:  "O ", 32:  "U ", 33:  "[ ", 34:  "I ", 35:  "P ", 36: "↩ ", 37:  "L ", 38:  "J ",
         39:  "' ", 40:  "K ", 41:  "; ", 42:  "\\ ", 43:  ", ", 44:  "/ ", 45:  "N ", 46:  "M ", 47:  ". ",
-        49:  "Space ", 36:  "↩ ", 51:  "⌫ ", 53:  "Esc ", 48:  "Tab ",
+        48:  "Tab ", 49: localizedKeyName("keypicker.key.space", fallback: "Space"), 50: "` ", 51:  "⌫ ", 53:  "Esc ",
+        65: numpadKeyName("."), 67: numpadKeyName("*"), 69: numpadKeyName("+"),
+        71: localizedKeyName("keypicker.key.clear", fallback: "Clear"),
+        75: numpadKeyName("/"), 76: numpadKeyName("↩"), 78: numpadKeyName("-"), 81: numpadKeyName("="),
+        82: numpadKeyName("0"), 83: numpadKeyName("1"), 84: numpadKeyName("2"), 85: numpadKeyName("3"),
+        86: numpadKeyName("4"), 87: numpadKeyName("5"), 88: numpadKeyName("6"), 89: numpadKeyName("7"),
+        91: numpadKeyName("8"), 92: numpadKeyName("9"),
+        96: "F5 ", 97: "F6 ", 98: "F7 ", 99: "F3 ", 100: "F8 ", 101: "F9 ",
+        103: "F11 ", 109: "F10 ", 111: "F12 ",
+        115: localizedKeyName("keypicker.key.home", fallback: "Home"),
+        116: localizedKeyName("keypicker.key.pageup", fallback: "Page Up"),
+        117: "⌦ ", 118: "F4 ",
+        119: localizedKeyName("keypicker.key.end", fallback: "End"),
+        120: "F2 ", 121: localizedKeyName("keypicker.key.pagedown", fallback: "Page Down"), 122: "F1 ",
         123:  "← ", 124:  "→ ", 125:  "↓ ", 126:  "↑ "
     ]
+
+    private static func localizedKeyName(_ key: String, fallback: String) -> String {
+        NSLocalizedString(key, value: fallback, comment: "") + " "
+    }
+
+    private static func numpadKeyName(_ key: String) -> String {
+        NSLocalizedString("keypicker.key.numpad", value: "Num", comment: "") + " " + key + " "
+    }
 
     static func getName(_ c: UInt16, _ f: UInt64) -> String {
         var s = " "

@@ -56,33 +56,6 @@ struct RulesView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
 
-                Menu {
-                    if runningApps.isEmpty {
-                        Text(NSLocalizedString("global.blacklist.no.running.apps", comment: ""))
-                    } else {
-                        ForEach(runningApps) { app in
-                            Button(action: {
-                                addGlobalBlacklistApp(app.bundleId)
-                            }) {
-                                Label(app.name, systemImage: engine.blacklist.contains(app.bundleId) ? "checkmark" : "app")
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Button(action: addGlobalBlacklistFromFinder) {
-                        Label(NSLocalizedString("global.blacklist.add.finder", comment: ""), systemImage: "folder")
-                    }
-                } label: {
-                    Label(NSLocalizedString("global.blacklist.add", comment: ""), systemImage: "plus.circle")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .onTapGesture {
-                    refreshRunningApps()
-                }
             }
             .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
@@ -267,7 +240,7 @@ struct RulesView: View {
                         .padding(.vertical, 8)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tmpTrig == nil || tmpTarg == nil)
+                .disabled(tmpTrig == nil || tmpTarg == nil || isRec1 || isRec2)
             }
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
@@ -313,6 +286,18 @@ struct RulesView: View {
         .onAppear {
             refreshRunningApps()
         }
+        .onDisappear {
+            cancelKeyRecording()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cancelKeyRecording)) { _ in
+            cancelKeyRecording()
+        }
+    }
+
+    private func cancelKeyRecording() {
+        isRec1 = false
+        isRec2 = false
+        engine.isRecording = false
     }
 
     func applyKeyEdit() {
@@ -332,22 +317,23 @@ struct RulesView: View {
     }
 
     func addMapping() {
-        if let a = tmpTrig, let b = tmpTarg {
-            engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote, appBlacklist: engine.blacklist))
-            tmpTrig = nil
-            tmpTarg = nil
-            tmpNote = ""
-        }
+        guard !isRec1, !isRec2, let a = tmpTrig, let b = tmpTarg else { return }
+
+        engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote))
+        tmpTrig = nil
+        tmpTarg = nil
+        tmpNote = ""
+        cancelKeyRecording()
     }
 
     var hasMissingDefaultRules: Bool {
-        defaultRulesWithGlobalBlacklist.contains { defaultRule in
+        MappingStore.defaultMappings().contains { defaultRule in
             !engine.list.contains { isSameRule($0, defaultRule) }
         }
     }
 
     func addMissingDefaultRules() {
-        for defaultRule in defaultRulesWithGlobalBlacklist where !engine.list.contains(where: { isSameRule($0, defaultRule) }) {
+        for defaultRule in MappingStore.defaultMappings() where !engine.list.contains(where: { isSameRule($0, defaultRule) }) {
             engine.list.append(defaultRule)
         }
     }
@@ -361,15 +347,7 @@ struct RulesView: View {
         alert.addButton(withTitle: NSLocalizedString("cancel", comment: ""))
 
         if alert.runModal() == .alertFirstButtonReturn {
-            engine.list = defaultRulesWithGlobalBlacklist
-        }
-    }
-
-    private var defaultRulesWithGlobalBlacklist: [MyMap] {
-        MappingStore.defaultMappings().map { rule in
-            var rule = rule
-            rule.mergeAppBlacklist(engine.blacklist)
-            return rule
+            engine.list = MappingStore.defaultMappings()
         }
     }
 
@@ -413,25 +391,6 @@ struct RulesView: View {
         if let idx = engine.list.firstIndex(where: { $0.id == id }) {
             engine.list[idx].appBlacklist.removeAll { $0 == bundleId }
         }
-    }
-
-    func addGlobalBlacklistApp(_ bundleId: String) {
-        engine.addGlobalBlacklistApp(bundleId)
-    }
-
-    func addGlobalBlacklistFromFinder() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.application]
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.message = NSLocalizedString("global.blacklist.select", comment: "")
-
-        guard panel.runModal() == .OK,
-              let url = panel.url,
-              let bundle = Bundle(url: url),
-              let bundleId = bundle.bundleIdentifier else { return }
-
-        addGlobalBlacklistApp(bundleId)
     }
 
     func refreshRunningApps() {
