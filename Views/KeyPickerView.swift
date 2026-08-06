@@ -50,8 +50,36 @@ struct KeyGridItem: Identifiable {
     let id: UInt16
     let name: String
 
+    private static func localizedName(_ key: String, fallback: String) -> String {
+        NSLocalizedString(key, value: fallback, comment: "")
+    }
+
+    private static func numpadName(_ key: String) -> String {
+        localizedName("keypicker.key.numpad", fallback: "Num") + " " + key
+    }
+
     // 按 QWERTY 键盘布局组织的按键网格数据
     static let organizedRows: [[KeyGridItem]] = [
+        // 功能键
+        [
+            KeyGridItem(id: 122, name: "F1"), KeyGridItem(id: 120, name: "F2"),
+            KeyGridItem(id: 99, name: "F3"), KeyGridItem(id: 118, name: "F4"),
+            KeyGridItem(id: 96, name: "F5"), KeyGridItem(id: 97, name: "F6"),
+        ],
+        [
+            KeyGridItem(id: 98, name: "F7"), KeyGridItem(id: 100, name: "F8"),
+            KeyGridItem(id: 101, name: "F9"), KeyGridItem(id: 109, name: "F10"),
+            KeyGridItem(id: 103, name: "F11"), KeyGridItem(id: 111, name: "F12"),
+        ],
+        // 数字键
+        [
+            KeyGridItem(id: 50, name: "`"),
+            KeyGridItem(id: 18, name: "1"), KeyGridItem(id: 19, name: "2"),
+            KeyGridItem(id: 20, name: "3"), KeyGridItem(id: 21, name: "4"),
+            KeyGridItem(id: 23, name: "5"), KeyGridItem(id: 22, name: "6"),
+            KeyGridItem(id: 26, name: "7"), KeyGridItem(id: 28, name: "8"),
+            KeyGridItem(id: 25, name: "9"), KeyGridItem(id: 29, name: "0"),
+        ],
         // 字母键 - 第一行 (QWERTYUIOP)
         [
             KeyGridItem(id: 12, name: "Q"), KeyGridItem(id: 13, name: "W"),
@@ -75,14 +103,6 @@ struct KeyGridItem: Identifiable {
             KeyGridItem(id: 11, name: "B"), KeyGridItem(id: 45, name: "N"),
             KeyGridItem(id: 46, name: "M"),
         ],
-        // 数字键
-        [
-            KeyGridItem(id: 18, name: "1"), KeyGridItem(id: 19, name: "2"),
-            KeyGridItem(id: 20, name: "3"), KeyGridItem(id: 21, name: "4"),
-            KeyGridItem(id: 23, name: "5"), KeyGridItem(id: 22, name: "6"),
-            KeyGridItem(id: 26, name: "7"), KeyGridItem(id: 28, name: "8"),
-            KeyGridItem(id: 25, name: "9"), KeyGridItem(id: 29, name: "0"),
-        ],
         // 符号键
         [
             KeyGridItem(id: 27, name: "-"), KeyGridItem(id: 24, name: "="),
@@ -91,51 +111,45 @@ struct KeyGridItem: Identifiable {
             KeyGridItem(id: 39, name: "'"), KeyGridItem(id: 43, name: ","),
             KeyGridItem(id: 47, name: "."), KeyGridItem(id: 44, name: "/"),
         ],
-        // 功能键
+        // 编辑键
         [
             KeyGridItem(id: 36, name: "↩"), KeyGridItem(id: 51, name: "⌫"),
+            KeyGridItem(id: 117, name: "⌦"),
             KeyGridItem(id: 53, name: "Esc"), KeyGridItem(id: 48, name: "Tab"),
-            KeyGridItem(id: 49, name: "Space"),
+            KeyGridItem(id: 49, name: localizedName("keypicker.key.space", fallback: "Space")),
         ],
-        // 方向键
+        // 导航键
         [
+            KeyGridItem(id: 115, name: localizedName("keypicker.key.home", fallback: "Home")),
+            KeyGridItem(id: 119, name: localizedName("keypicker.key.end", fallback: "End")),
+            KeyGridItem(id: 116, name: localizedName("keypicker.key.pageup", fallback: "PgUp")),
+            KeyGridItem(id: 121, name: localizedName("keypicker.key.pagedown", fallback: "PgDn")),
             KeyGridItem(id: 123, name: "←"), KeyGridItem(id: 124, name: "→"),
             KeyGridItem(id: 126, name: "↑"), KeyGridItem(id: 125, name: "↓"),
         ],
+        // 数字键盘
+        [
+            KeyGridItem(id: 89, name: numpadName("7")),
+            KeyGridItem(id: 91, name: numpadName("8")),
+            KeyGridItem(id: 92, name: numpadName("9")),
+            KeyGridItem(id: 75, name: numpadName("/")), KeyGridItem(id: 67, name: numpadName("*")),
+            KeyGridItem(id: 71, name: localizedName("keypicker.key.clear", fallback: "Clear")),
+        ],
+        [
+            KeyGridItem(id: 86, name: numpadName("4")),
+            KeyGridItem(id: 87, name: numpadName("5")),
+            KeyGridItem(id: 88, name: numpadName("6")),
+            KeyGridItem(id: 78, name: numpadName("-")), KeyGridItem(id: 69, name: numpadName("+")),
+            KeyGridItem(id: 81, name: numpadName("=")),
+        ],
+        [
+            KeyGridItem(id: 83, name: numpadName("1")),
+            KeyGridItem(id: 84, name: numpadName("2")),
+            KeyGridItem(id: 85, name: numpadName("3")),
+            KeyGridItem(id: 82, name: numpadName("0")),
+            KeyGridItem(id: 65, name: numpadName(".")), KeyGridItem(id: 76, name: numpadName("↩")),
+        ],
     ]
-}
-
-// MARK: - KeyPickerPreferences
-// 按键选择器偏好设置管理，持久化用户最近使用的修饰键组合。
-// 偏好设置在应用重启后保持生效。
-
-struct KeyPickerPreferences {
-    // 最近使用的修饰键组合列表
-    static var lastModifiers: [ModifierKey] {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: "keypicker_last_modifiers"),
-                  let decoded = try? JSONDecoder().decode([ModifierKey].self, from: data) else {
-                return []
-            }
-            return decoded
-        }
-        set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                UserDefaults.standard.set(data, forKey: "keypicker_last_modifiers")
-            }
-        }
-    }
-
-    // 最近使用的按键 keyCode
-    static var lastKeyCode: UInt16? {
-        get {
-            let val = UserDefaults.standard.integer(forKey: "keypicker_last_keycode")
-            return val == 0 ? nil : UInt16(val)
-        }
-        set {
-            UserDefaults.standard.set(Int(newValue ?? 0), forKey: "keypicker_last_keycode")
-        }
-    }
 }
 
 // MARK: - KeyPickerView
@@ -207,7 +221,7 @@ struct KeyPickerView: View {
         .padding(16)
         .frame(width: 380)
         .onAppear {
-            loadPreferences()
+            loadSelection()
         }
     }
 
@@ -422,13 +436,12 @@ struct KeyPickerView: View {
     private func confirmSelection() {
         guard let code = selectedKeyCode else { return }
         selection = (code, combinedFlags)
-        savePreferences()
         onConfirm?()
     }
 
-    // 加载初始状态：从selection参数解析当前按键组合
+    // 加载初始状态：从 selection 参数解析当前按键组合
     // 当selection为nil时保持空白状态，确保录制栏为空时选择器也为空
-    private func loadPreferences() {
+    private func loadSelection() {
         if let sel = selection {
             let (code, flags) = sel
             selectedKeyCode = code
@@ -453,9 +466,4 @@ struct KeyPickerView: View {
         return result
     }
 
-    // 保存当前偏好设置
-    private func savePreferences() {
-        KeyPickerPreferences.lastModifiers = modifierKeys
-        KeyPickerPreferences.lastKeyCode = selectedKeyCode
-    }
 }

@@ -19,6 +19,10 @@ struct SettingsView: View {
     @State private var isRecHotkey = false
     // 临时存储录制的暂停热键
     @State private var tmpHotkey: (UInt16, UInt64)? = nil
+    // 导入期间禁止重复操作，并向用户显示明确的进行中状态。
+    @State private var isImportInProgress = false
+    // 失效旧回调，避免离开设置页后继续覆盖用户的新修改。
+    @State private var activeImportID: UUID?
 
     var body: some View {
         ScrollView {
@@ -82,29 +86,44 @@ struct SettingsView: View {
                                     Text(NSLocalizedString("settings.waiting.input", comment: ""))
                                         .font(.system(size: 12))
                                         .foregroundColor(.orange)
-                                } else if let hk = engine.pauseHotkey {
-                                    Text(MyMap.getName(hk.0, hk.1))
-                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                        .foregroundColor(.accentColor)
 
-                                    Button(action: {
-                                        engine.pauseHotkey = MappingStore.defaultPauseHotkey
-                                    }) {
-                                        Image(systemName: "arrow.counterclockwise.circle.fill")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
+                                    Button(NSLocalizedString("cancel", comment: "")) {
+                                        cancelHotkeyRecording()
                                     }
-                                    .buttonStyle(.plain)
+                                    .controlSize(.small)
                                 } else {
-                                    Button(action: {
-                                        isRecHotkey = true
-                                    }) {
-                                        Text(NSLocalizedString("settings.record", comment: ""))
+                                    if let hk = engine.pauseHotkey {
+                                        Text(MyMap.getName(hk.0, hk.1))
+                                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                            .foregroundColor(.accentColor)
+                                    }
+
+                                    Button(action: startHotkeyRecording) {
+                                        Label(
+                                            NSLocalizedString(
+                                                engine.pauseHotkey == nil
+                                                    ? "settings.record"
+                                                    : "settings.change.hotkey",
+                                                comment: ""
+                                            ),
+                                            systemImage: engine.pauseHotkey == nil ? "record.circle" : "pencil"
+                                        )
+                                        .font(.system(size: 11))
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+
+                                    Button(action: resetPauseHotkey) {
+                                        Image(systemName: "arrow.counterclockwise")
                                             .font(.system(size: 11))
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .disabled(isUsingDefaultPauseHotkey)
+                                    .help(NSLocalizedString("settings.reset.hotkey", comment: ""))
                                 }
                             }
+                            .disabled(isImportInProgress)
                         }
 
                         Divider()
@@ -150,13 +169,27 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
+                        .disabled(isImportInProgress || isRecHotkey)
 
                         Button(action: importConfig) {
-                            Label(NSLocalizedString("settings.import", comment: ""), systemImage: "arrow.up.circle")
+                            HStack(spacing: 6) {
+                                Group {
+                                    if isImportInProgress {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "arrow.up.circle")
+                                    }
+                                }
+                                .frame(width: 16, height: 16)
+
+                                Text(NSLocalizedString("settings.import", comment: ""))
+                            }
                                 .font(.system(size: 13, weight: .medium))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
+                        .disabled(isImportInProgress || isRecHotkey)
                     }
                 }
 
@@ -250,10 +283,50 @@ struct SettingsView: View {
                             Button(action: {
                                 backupManager.performBackup()
                             }) {
-                                Text(NSLocalizedString("settings.backup.now", comment: ""))
-                                    .font(.system(size: 11))
+                                HStack(spacing: 6) {
+                                    if backupManager.isBackupInProgress {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "externaldrive.badge.timemachine")
+                                    }
+                                    Text(NSLocalizedString(
+                                        backupManager.isBackupInProgress
+                                            ? "settings.backup.in.progress"
+                                            : "settings.backup.now",
+                                        comment: ""
+                                    ))
+                                }
+                                .font(.system(size: 11))
                             }
                             .buttonStyle(.bordered)
+                            .disabled(backupManager.isBackupInProgress)
+                        }
+
+                        if backupManager.autoBackupEnabled, let nextBackupDate = backupManager.nextBackupDate {
+                            Divider()
+                                .padding(.leading, 0)
+
+                            SettingsRow(
+                                title: NSLocalizedString("settings.next.backup", comment: ""),
+                                description: nextBackupDate.formattedMedium
+                            ) {
+                                Image(systemName: "calendar.badge.clock")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        if let lastBackupError = backupManager.lastBackupError {
+                            Divider()
+                                .padding(.leading, 0)
+
+                            SettingsRow(
+                                title: NSLocalizedString("settings.backup.error", comment: ""),
+                                description: lastBackupError
+                            ) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                            }
                         }
                     }
                     .background(Color(NSColor.controlBackgroundColor))
@@ -262,6 +335,7 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                     )
+                    .disabled(isImportInProgress)
                 }
 
             }
@@ -270,15 +344,48 @@ struct SettingsView: View {
         // 嵌入 KeyLogic 以捕获暂停热键录制
         .background(KeyLogic(r1: $isRecHotkey, r2: .constant(false), t1: $tmpHotkey, t2: .constant(nil)))
         .onChange(of: isRecHotkey) { newValue in
+            engine.isRecording = newValue
+
             // 录制结束后，将捕获的热键设置为暂停热键
             if !newValue, let hk = tmpHotkey {
-                engine.pauseHotkey = hk
+                engine.pauseHotkey = (hk.0, hk.1 & ModifierKey.allMask)
                 tmpHotkey = nil
             }
         }
         .onAppear {
+            engine.isRecording = false
             syncLaunchAtLoginState()
         }
+        .onDisappear {
+            cancelImport()
+            cancelHotkeyRecording()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cancelKeyRecording)) { _ in
+            cancelHotkeyRecording()
+        }
+    }
+
+    private var isUsingDefaultPauseHotkey: Bool {
+        guard let hotkey = engine.pauseHotkey else { return false }
+        return hotkey.keyCode == MappingStore.defaultPauseHotkey.keyCode
+            && (hotkey.flags & ModifierKey.allMask) == (MappingStore.defaultPauseHotkey.flags & ModifierKey.allMask)
+    }
+
+    private func startHotkeyRecording() {
+        tmpHotkey = nil
+        engine.isRecording = true
+        isRecHotkey = true
+    }
+
+    private func cancelHotkeyRecording() {
+        tmpHotkey = nil
+        isRecHotkey = false
+        engine.isRecording = false
+    }
+
+    private func resetPauseHotkey() {
+        cancelHotkeyRecording()
+        engine.pauseHotkey = MappingStore.defaultPauseHotkey
     }
 
     // MARK: - 通用设置方法
@@ -362,11 +469,14 @@ struct SettingsView: View {
         panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
 
         if panel.runModal() == .OK, let url = panel.url {
-            let config = engine.buildConfigDict()
-
             do {
-                let data = try JSONSerialization.data(withJSONObject: config, options: .prettyPrinted)
-                try data.write(to: url)
+                let config = MappingStore.makeConfiguration(
+                    mappings: engine.list,
+                    blacklist: engine.blacklist,
+                    pauseHotkey: engine.pauseHotkey
+                )
+                let data = try MappingStore.encodeValidatedConfiguration(config)
+                try data.write(to: url, options: .atomic)
                 showAlert(
                     title: NSLocalizedString("settings.export.success.title", comment: ""),
                     message: NSLocalizedString("settings.export.success.message", comment: ""),
@@ -386,70 +496,111 @@ struct SettingsView: View {
 
     // 从 JSON 文件导入映射规则和暂停热键，覆盖当前配置
     private func importConfig() {
+        guard !isImportInProgress, !isRecHotkey else { return }
+
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.message = NSLocalizedString("settings.import.message", comment: "")
         panel.directoryURL = URL(fileURLWithPath: backupManager.backupPath)
 
-        if panel.runModal() == .OK, let url = panel.url {
-            do {
-                let data = try Data(contentsOf: url)
-                guard let config = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                    throw NSError(domain: "KeyMapper", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
-                }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
 
-                var importedCount = 0
-                let importedGlobalBlacklist = config["blacklist"] as? [String] ?? []
+        let importID = UUID()
+        activeImportID = importID
+        isImportInProgress = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result {
+                try MappingStore.decodeAndValidateConfiguration(at: url)
+            }
 
-                // 解析映射规则
-                if let mappings = config["mappings"] as? [[String: Any]] {
-                    let newMappings = mappings.compactMap { m -> MyMap? in
-                        guard let fCode = m["fCode"] as? UInt16,
-                              let fFlags = m["fFlags"] as? UInt64,
-                              let tCode = m["tCode"] as? UInt16,
-                              let tFlags = m["tFlags"] as? UInt64 else { return nil }
-                        let id = (m["id"] as? String).flatMap { UUID(uuidString: $0) } ?? UUID()
-                        let isOn = m["isOn"] as? Bool ?? true
-                        let note = m["note"] as? String ?? ""
-                        let appBlacklist = m["appBlacklist"] as? [String] ?? []
-                        importedCount += 1
-                        return MyMap(id: id, fCode: fCode, fFlags: fFlags, tCode: tCode, tFlags: tFlags, isOn: isOn, note: note, appBlacklist: appBlacklist)
-                    }
-
-                    if !importedGlobalBlacklist.isEmpty {
-                        engine.list = newMappings.map { mapping in
-                            var migrated = mapping
-                            migrated.mergeAppBlacklist(importedGlobalBlacklist)
-                            return migrated
-                        }
-                    } else {
-                        engine.list = newMappings
-                    }
-                }
-
-                engine.blacklist = importedGlobalBlacklist
-
-                // 解析暂停热键
-                if let hotkey = config["pauseHotkey"] as? [String: Any],
-                   let keyCode = hotkey["keyCode"] as? UInt16,
-                   let flags = hotkey["flags"] as? UInt64 {
-                    engine.pauseHotkey = (keyCode: keyCode, flags: flags)
-                }
-
-                showAlert(
-                    title: NSLocalizedString("settings.import.success.title", comment: ""),
-                    message: String(format: NSLocalizedString("settings.import.success.message", comment: ""), importedCount),
-                    style: .informational
-                )
-            } catch {
-                showAlert(
-                    title: NSLocalizedString("settings.import.error.title", comment: ""),
-                    message: error.localizedDescription,
-                    style: .critical
-                )
+            DispatchQueue.main.async { [self] in
+                handleValidatedImport(result, importID: importID)
             }
         }
+    }
+
+    private func handleValidatedImport(
+        _ result: Result<MappingStore.ValidatedConfiguration, Error>,
+        importID: UUID
+    ) {
+        guard activeImportID == importID else { return }
+
+        switch result {
+        case .failure(let error):
+            finishImport(importID)
+            showImportError(error)
+
+        case .success(let config):
+            guard confirmImport(mappingCount: config.mappings.count) else {
+                finishImport(importID)
+                return
+            }
+
+            backupManager.performBackupAndReportSuccess { [self] succeeded in
+                guard activeImportID == importID else { return }
+
+                guard succeeded else {
+                    finishImport(importID)
+                    showAlert(
+                        title: NSLocalizedString("settings.import.backup.error.title", comment: ""),
+                        message: NSLocalizedString("settings.import.backup.error.message", comment: ""),
+                        style: .critical
+                    )
+                    return
+                }
+
+                do {
+                    // Validation and backup complete before the configuration is persisted
+                    // in one transaction and then published to the UI.
+                    try engine.applyValidatedConfiguration(config)
+                    finishImport(importID)
+                    showAlert(
+                        title: NSLocalizedString("settings.import.success.title", comment: ""),
+                        message: String(
+                            format: NSLocalizedString("settings.import.success.message", comment: ""),
+                            config.mappings.count
+                        ),
+                        style: .informational
+                    )
+                } catch {
+                    finishImport(importID)
+                    showImportError(error)
+                }
+            }
+        }
+    }
+
+    private func finishImport(_ importID: UUID) {
+        guard activeImportID == importID else { return }
+        activeImportID = nil
+        isImportInProgress = false
+    }
+
+    private func cancelImport() {
+        activeImportID = nil
+        isImportInProgress = false
+    }
+
+    private func showImportError(_ error: Error) {
+        showAlert(
+            title: NSLocalizedString("settings.import.error.title", comment: ""),
+            message: error.localizedDescription,
+            style: .critical
+        )
+    }
+
+    private func confirmImport(mappingCount: Int) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("settings.import.confirm.title", comment: "")
+        alert.informativeText = String(
+            format: NSLocalizedString("settings.import.confirm.message", comment: ""),
+            mappingCount
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: NSLocalizedString("settings.import.confirm.action", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("cancel", comment: ""))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     // MARK: - 通用弹窗
@@ -650,6 +801,7 @@ struct ToastSettingsView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(!toastStyle.isEnabled)
                 }
                 .padding(20)
         }

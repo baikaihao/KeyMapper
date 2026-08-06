@@ -48,9 +48,14 @@
 
 /* Blacklist View */
 "blacklist.title" = "黑名单管理";
-"blacklist.desc" = "在黑名单中的应用程序运行时，KeyMapper 将自动暂停所有映射规则，以防止与原生快捷键冲突。";
-"blacklist.add" = "添加应用程序到黑名单";
+"blacklist.desc" = "当前台应用位于全局黑名单时，所有映射规则都会暂停；单条规则的应用黑名单仍独立生效。";
+"blacklist.add" = "添加应用";
+"blacklist.add.finder" = "从访达选择应用";
 "blacklist.select.app" = "选择要添加到黑名单的应用";
+"blacklist.empty.title" = "全局黑名单为空";
+"blacklist.empty.desc" = "添加应用后，该应用位于前台时所有映射都会暂停。";
+"blacklist.count" = "共 %d 个应用";
+"blacklist.refresh" = "刷新运行中的应用";
 
 /* Settings View */
 "settings.general" = "常规设置";
@@ -64,6 +69,8 @@
 "settings.pause.hotkey.desc" = "按下快捷键切换引擎暂停/恢复";
 "settings.waiting.input" = "等待输入...";
 "settings.record" = "录制快捷键";
+"settings.change.hotkey" = "更改";
+"settings.reset.hotkey" = "恢复默认快捷键";
 "settings.accessibility" = "辅助功能权限";
 "settings.accessibility.desc" = "请先在列表中选择 KeyMapper，点击「-」删除，再点击右侧按钮重新申请授权，最后在系统设置中勾选授权。辅助功能权限弹窗可能被应用程序窗口遮挡，请留意。";
 "settings.authorized" = "已授权";
@@ -78,6 +85,22 @@
 "settings.import.success.title" = "导入成功";
 "settings.import.success.message" = "已成功导入 %d 条映射规则";
 "settings.import.error.title" = "导入失败";
+"settings.import.confirm.title" = "确认覆盖当前配置？";
+"settings.import.confirm.message" = "将导入 %d 条映射规则并覆盖当前配置。导入前会自动备份当前配置。";
+"settings.import.confirm.action" = "备份并导入";
+"settings.import.backup.error.title" = "导入已取消";
+"settings.import.backup.error.message" = "无法备份当前配置。为避免数据丢失，本次导入未应用任何更改。";
+"settings.import.error.file.too.large" = "配置文件过大，无法安全导入。";
+"settings.import.error.invalid.format" = "配置文件格式无效、字段缺失或字段类型不正确。未修改任何现有配置。";
+"settings.import.error.unsupported.version" = "不支持配置版本 %@。";
+"settings.import.error.too.many.mappings" = "配置文件包含的映射规则过多。";
+"settings.import.error.duplicate.id" = "配置文件包含重复的规则 ID：%@。";
+"settings.import.error.invalid.mapping" = "第 %d 条映射规则包含越界的键码或按键标志。";
+"settings.import.error.invalid.note" = "第 %d 条映射规则的备注过长。";
+"settings.import.error.invalid.rule.blacklist" = "第 %d 条映射规则包含无效或重复的应用黑名单条目。";
+"settings.import.error.invalid.blacklist" = "配置文件包含无效或重复的全局黑名单条目。";
+"settings.import.error.invalid.hotkey" = "配置文件中的暂停快捷键包含越界数值。";
+"settings.import.error.persistence" = "无法保存导入的配置，未应用任何内存更改。";
 "settings.launch.error.title" = "无法设置开机自启";
 "settings.launch.error.message" = "请尝试将应用移动到「应用程序」文件夹后再试。";
 /* Toast Settings */
@@ -125,6 +148,9 @@
 "settings.last.backup" = "上次备份";
 "settings.never" = "从未备份";
 "settings.backup.now" = "立即备份";
+"settings.backup.in.progress" = "正在备份...";
+"settings.next.backup" = "下次备份";
+"settings.backup.error" = "最近备份失败";
 "settings.select" = "选择";
 "settings.days" = "天";
 "settings.backup.select.folder" = "选择备份文件夹";
@@ -184,6 +210,13 @@
 "keypicker.no.selection" = "未选择按键";
 "keypicker.confirm" = "确认";
 "keypicker.cancel" = "取消";
+"keypicker.key.space" = "空格";
+"keypicker.key.home" = "行首";
+"keypicker.key.end" = "行尾";
+"keypicker.key.pageup" = "上页";
+"keypicker.key.pagedown" = "下页";
+"keypicker.key.numpad" = "数字";
+"keypicker.key.clear" = "清除";
 "rules.pick.key" = "可视化选择按键";
 
 /* Launch at Login Error */

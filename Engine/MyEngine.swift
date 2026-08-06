@@ -4,6 +4,7 @@ import AppKit
 
 extension Notification.Name {
     static let mappingTriggered = Notification.Name("mappingTriggered")
+    static let cancelKeyRecording = Notification.Name("cancelKeyRecording")
 }
 
 // MARK: - MyEngine
@@ -24,12 +25,25 @@ class MyEngine: ObservableObject {
 
     // MARK: - 发布属性（UI 绑定）
 
+    private var isApplyingConfiguration = false
     // 映射规则列表，变更时自动持久化
-    @Published var list: [MyMap] = [] { didSet { MappingStore.shared.saveList(list) } }
+    @Published var list: [MyMap] = [] {
+        didSet {
+            if !isApplyingConfiguration { MappingStore.shared.saveList(list) }
+        }
+    }
     @Published var isActive: Bool = false
     @Published var isPaused: Bool = false
-    @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil { didSet { MappingStore.shared.savePauseHotkey(pauseHotkey) } }
-    @Published var blacklist: [String] = [] { didSet { MappingStore.shared.saveBlacklist(blacklist) } }
+    @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil {
+        didSet {
+            if !isApplyingConfiguration { MappingStore.shared.savePauseHotkey(pauseHotkey) }
+        }
+    }
+    @Published var blacklist: [String] = [] {
+        didSet {
+            if !isApplyingConfiguration { MappingStore.shared.saveBlacklist(blacklist) }
+        }
+    }
     // 是否处于按键录制模式（录制期间不拦截按键，让事件正常传递）
     @Published var isRecording: Bool = false
 
@@ -37,14 +51,22 @@ class MyEngine: ObservableObject {
 
     // CGEventTap 的 MachPort 引用，用于管理事件监听的生命周期
     private var tap: CFMachPort?
+    // Tap 对应的 RunLoop source；重建时需要与旧 MachPort 一并移除。
+    private var tapRunLoopSource: CFRunLoopSource?
     // CGEventTap 创建失败时的重试定时器
     private var retryTimer: Timer?
+    // 常驻低频巡检，兜底处理撤权、睡眠唤醒或端口失效但未收到禁用回调的情况。
+    private var eventTapHealthTimer: Timer?
+    // 防止同一轮禁用事件重复提交重建任务。
+    private var tapRecoveryScheduled = false
     // 辅助功能权限轮询定时器，授权成功后自动停止
     private var authTimer: Timer?
     // 多映射状态：当同一按键映射到多个目标时，暂存匹配结果等待用户选择
     private var multiMappingState: (keyCode: UInt16, flags: UInt64, matches: [MyMap])?
     // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp 并恢复修饰键状态。
     private var activeSingleMappings: [UInt16: ActiveMapping] = [:]
+    // 已吞掉的暂停热键 keyDown；用于屏蔽自动重复并成对吞掉 keyUp。
+    private var pauseHotkeyPressedKeyCode: UInt16?
     // 径向选择轮盘是否正在显示
     private var isWheelShowing: Bool = false
     // 自身应用的 Bundle ID，用于在回调中过滤自身应用的按键事件
@@ -56,31 +78,111 @@ class MyEngine: ObservableObject {
         list = MappingStore.shared.loadList()
         pauseHotkey = MappingStore.shared.loadPauseHotkey()
         blacklist = MappingStore.shared.loadBlacklist()
-        applyGlobalBlacklistToRulesIfNeeded()
+        separateGlobalBlacklistFromRulesIfNeeded()
+        startEventTapHealthMonitoring()
         checkAccessibility()
-        start()
     }
 
     // MARK: - 辅助功能权限检查
 
     // 检查辅助功能权限是否已授权。
-    // 若未授权，启动定时器每 0.5 秒轮询一次，授权后自动激活引擎。
+    // 若未授权，启动定时器轮询；授权后立即创建 Tap，而不是提前宣告引擎可用。
     func checkAccessibility() {
-        let trusted = AXIsProcessTrusted()
-        self.isActive = trusted
-
-        if !trusted {
-            authTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
-                let isNowTrusted = AXIsProcessTrusted()
-                if isNowTrusted {
-                    DispatchQueue.main.async {
-                        self?.isActive = true
-                    }
-                    timer.invalidate()
-                    self?.authTimer = nil
-                }
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.checkAccessibility()
             }
+            return
         }
+
+        guard AXIsProcessTrusted() else {
+            tearDownEventTap()
+            scheduleAccessibilityPolling()
+            return
+        }
+
+        authTimer?.invalidate()
+        authTimer = nil
+
+        if let tap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            updateEventTapActiveState()
+        }
+
+        if !isActive {
+            start()
+        }
+    }
+
+    private func scheduleAccessibilityPolling() {
+        guard authTimer == nil else { return }
+
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            guard AXIsProcessTrusted() else {
+                self.setEventTapActive(false)
+                return
+            }
+
+            timer.invalidate()
+            self.authTimer = nil
+            self.start()
+        }
+        authTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func setEventTapActive(_ active: Bool) {
+        if isActive != active {
+            isActive = active
+        }
+    }
+
+    private func updateEventTapActiveState() {
+        let tapIsEnabled = tap.map {
+            CFMachPortIsValid($0) && CGEvent.tapIsEnabled(tap: $0)
+        } ?? false
+        setEventTapActive(AXIsProcessTrusted() && tapIsEnabled)
+    }
+
+    private func startEventTapHealthMonitoring() {
+        guard eventTapHealthTimer == nil else { return }
+
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.checkEventTapHealth()
+        }
+        eventTapHealthTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func checkEventTapHealth() {
+        guard AXIsProcessTrusted() else {
+            if tap != nil || tapRunLoopSource != nil || isActive {
+                tearDownEventTap()
+            } else {
+                setEventTapActive(false)
+            }
+            scheduleAccessibilityPolling()
+            return
+        }
+
+        authTimer?.invalidate()
+        authTimer = nil
+
+        guard let tap,
+              CFMachPortIsValid(tap),
+              CGEvent.tapIsEnabled(tap: tap) else {
+            setEventTapActive(false)
+            resetInFlightKeyState()
+            start()
+            return
+        }
+
+        setEventTapActive(true)
     }
 
     // MARK: - 暂停/恢复控制
@@ -101,25 +203,14 @@ class MyEngine: ObservableObject {
         }
     }
 
-    func buildConfigDict() -> [String: Any] {
-        [
-            "version": "2.0",
-            "mappings": list.map { [
-                "id": $0.id.uuidString,
-                "fCode": $0.fCode,
-                "fFlags": $0.fFlags,
-                "tCode": $0.tCode,
-                "tFlags": $0.tFlags,
-                "isOn": $0.isOn,
-                "note": $0.note,
-                "appBlacklist": $0.appBlacklist
-            ]},
-            "blacklist": blacklist,
-            "pauseHotkey": pauseHotkey.map { [
-                "keyCode": $0.keyCode,
-                "flags": $0.flags
-            ]} as Any
-        ]
+    func applyValidatedConfiguration(_ configuration: MappingStore.ValidatedConfiguration) throws {
+        try MappingStore.shared.persistValidatedConfiguration(configuration)
+
+        isApplyingConfiguration = true
+        defer { isApplyingConfiguration = false }
+        list = configuration.mappings
+        blacklist = configuration.blacklist
+        pauseHotkey = configuration.pauseHotkey
     }
 
     // MARK: - 核心事件监听
@@ -129,6 +220,7 @@ class MyEngine: ObservableObject {
     private struct ActiveMapping {
         let mapping: MyMap
         let targetModifiers: UInt64
+        let sourceModifiers: UInt64
     }
 
     private static let modifierKeyCodes: [(key: ModifierKey, code: UInt16)] = [
@@ -138,67 +230,67 @@ class MyEngine: ObservableObject {
         (.command, 55)
     ]
 
-    private static func postEvent(_ event: CGEvent, proxy: CGEventTapProxy) {
+    private static func postEvent(_ event: CGEvent) {
         event.setIntegerValueField(.eventSourceUserData, value: eventTag)
         event.post(tap: .cghidEventTap)
     }
 
-    private static func postMappedKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false) {
+    private static func postMappedKey(code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false) {
         let source = CGEventSource(stateID: .hidSystemState)
         if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
             e.flags = CGEventFlags(rawValue: flags)
             e.setIntegerValueField(.keyboardEventAutorepeat, value: isAutorepeat ? 1 : 0)
-            postEvent(e, proxy: proxy)
+            postEvent(e)
         }
     }
 
-    private static func postModifierKey(proxy: CGEventTapProxy, code: UInt16, flags: UInt64, keyDown: Bool) {
+    private static func postModifierKey(code: UInt16, flags: UInt64, keyDown: Bool) {
         let source = CGEventSource(stateID: .hidSystemState)
         if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
             e.flags = CGEventFlags(rawValue: flags)
-            postEvent(e, proxy: proxy)
+            postEvent(e)
         }
     }
 
-    private static func postModifierTransition(proxy: CGEventTapProxy, from currentFlags: UInt64, to targetFlags: UInt64) {
+    private static func postModifierTransition(from currentFlags: UInt64, to targetFlags: UInt64) {
         var activeFlags = currentFlags & ModifierKey.allMask
         let targetFlags = targetFlags & ModifierKey.allMask
 
         for item in modifierKeyCodes.reversed() where (activeFlags & item.key.flagValue) != 0 && (targetFlags & item.key.flagValue) == 0 {
             activeFlags &= ~item.key.flagValue
-            postModifierKey(proxy: proxy, code: item.code, flags: activeFlags, keyDown: false)
+            postModifierKey(code: item.code, flags: activeFlags, keyDown: false)
         }
 
         for item in modifierKeyCodes where (activeFlags & item.key.flagValue) == 0 && (targetFlags & item.key.flagValue) != 0 {
             activeFlags |= item.key.flagValue
-            postModifierKey(proxy: proxy, code: item.code, flags: activeFlags, keyDown: true)
+            postModifierKey(code: item.code, flags: activeFlags, keyDown: true)
         }
     }
 
-    private static func postMappedKeyDownWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, sourceModifiers: UInt64, isAutorepeat: Bool) -> UInt64 {
+    private static func postMappedKeyDownWithModifierBridge(mapping: MyMap, sourceModifiers: UInt64, isAutorepeat: Bool) -> UInt64 {
         let targetModifiers = mapping.tFlags & ModifierKey.allMask
         if !isAutorepeat {
-            postModifierTransition(proxy: proxy, from: sourceModifiers, to: targetModifiers)
+            postModifierTransition(from: sourceModifiers, to: targetModifiers)
         }
-        postMappedKey(proxy: proxy, code: mapping.tCode, flags: targetModifiers, keyDown: true, isAutorepeat: isAutorepeat)
+        postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: true, isAutorepeat: isAutorepeat)
         return targetModifiers
     }
 
-    private static func postMappedKeyUpWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, targetModifiers: UInt64, restoreModifiers: UInt64) {
-        postMappedKey(proxy: proxy, code: mapping.tCode, flags: targetModifiers, keyDown: false)
-        postModifierTransition(proxy: proxy, from: targetModifiers, to: restoreModifiers)
+    private static func postMappedKeyUpWithModifierBridge(mapping: MyMap, targetModifiers: UInt64, restoreModifiers: UInt64) {
+        postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: false)
+        postModifierTransition(from: targetModifiers, to: restoreModifiers)
     }
 
-    private static func postMappedKeyPair(proxy: CGEventTapProxy, code: UInt16, flags: UInt64) {
-        postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: true)
-        postMappedKey(proxy: proxy, code: code, flags: flags, keyDown: false)
+    private static func postMappedKeyPair(code: UInt16, flags: UInt64) {
+        postMappedKey(code: code, flags: flags, keyDown: true)
+        postMappedKey(code: code, flags: flags, keyDown: false)
     }
 
-    private static func postMappedKeyPairWithModifierBridge(proxy: CGEventTapProxy, mapping: MyMap, sourceModifiers: UInt64, restoreModifiers: UInt64) {
+    private static func postMappedKeyPairWithModifierBridge(mapping: MyMap, sourceModifiers: UInt64, restoreModifiers: UInt64) {
         let targetModifiers = mapping.tFlags & ModifierKey.allMask
-        postModifierTransition(proxy: proxy, from: sourceModifiers, to: targetModifiers)
-        postMappedKeyPair(proxy: proxy, code: mapping.tCode, flags: targetModifiers)
-        postModifierTransition(proxy: proxy, from: targetModifiers, to: restoreModifiers)
+        postModifierTransition(from: sourceModifiers, to: targetModifiers)
+        postMappedKeyPair(code: mapping.tCode, flags: targetModifiers)
+        postModifierTransition(from: targetModifiers, to: restoreModifiers)
     }
 
     private func shouldHandleMappedKeyUp(keyCode: UInt16) -> Bool {
@@ -206,9 +298,44 @@ class MyEngine: ObservableObject {
     }
 
     func start() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.start()
+            }
+            return
+        }
+
+        tapRecoveryScheduled = false
         retryTimer?.invalidate()
+        retryTimer = nil
+
+        guard AXIsProcessTrusted() else {
+            tearDownEventTap()
+            scheduleAccessibilityPolling()
+            return
+        }
+
+        authTimer?.invalidate()
+        authTimer = nil
+
+        // 已存在的 Tap 可能只是被系统临时禁用，优先原地恢复。
+        if let tap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            updateEventTapActiveState()
+            if isActive {
+                return
+            }
+        }
+
+        tearDownEventTap()
+
         let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
-        let callback: CGEventTapCallBack = { (proxy, type, event, _) -> Unmanaged<CGEvent>? in
+        let callback: CGEventTapCallBack = { (_, type, event, _) -> Unmanaged<CGEvent>? in
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                MyEngine.shared.handleEventTapDisabled()
+                return Unmanaged.passUnretained(event)
+            }
+
             let c = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             let f = event.flags.rawValue
 
@@ -217,26 +344,37 @@ class MyEngine: ObservableObject {
             }
 
             if type == .keyUp && MyEngine.shared.shouldHandleMappedKeyUp(keyCode: c) {
-                return MyEngine.shared.handleKeyUp(proxy: proxy, keyCode: c, originalEvent: event)
+                return MyEngine.shared.handleKeyUp(keyCode: c, originalEvent: event)
+            }
+
+            if MyEngine.shared.pauseHotkeyPressedKeyCode == c {
+                if type == .keyUp {
+                    MyEngine.shared.pauseHotkeyPressedKeyCode = nil
+                }
+                return nil
             }
 
             if MyEngine.shared.isRecording {
                 return Unmanaged.passUnretained(event)
             }
 
+            if let hk = MyEngine.shared.pauseHotkey,
+               type == .keyDown,
+               c == hk.keyCode,
+               (f & ModifierKey.allMask) == (hk.flags & ModifierKey.allMask) {
+                if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                    MyEngine.shared.pauseHotkeyPressedKeyCode = c
+                    DispatchQueue.main.async {
+                        MyEngine.shared.toggle()
+                    }
+                }
+                return nil
+            }
+
             if let frontApp = NSWorkspace.shared.frontmostApplication,
                let bundleId = frontApp.bundleIdentifier,
                bundleId == MyEngine.shared.myBundleId {
                 return Unmanaged.passUnretained(event)
-            }
-
-            if let hk = MyEngine.shared.pauseHotkey {
-                if type == .keyDown && c == hk.keyCode && (f & ModifierKey.allMask) == (hk.flags & ModifierKey.allMask) {
-                    DispatchQueue.main.async {
-                        MyEngine.shared.toggle()
-                    }
-                    return nil
-                }
             }
 
             if MyEngine.shared.isPaused {
@@ -246,39 +384,134 @@ class MyEngine: ObservableObject {
             let currentModifiers = f & ModifierKey.allMask
 
             if type == .keyDown {
-                return MyEngine.shared.handleKeyDown(proxy: proxy, keyCode: c, modifiers: currentModifiers, isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1, originalEvent: event)
+                return MyEngine.shared.handleKeyDown(keyCode: c, modifiers: currentModifiers, isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1, originalEvent: event)
             }
 
             if type == .keyUp {
-                return MyEngine.shared.handleKeyUp(proxy: proxy, keyCode: c, originalEvent: event)
+                return MyEngine.shared.handleKeyUp(keyCode: c, originalEvent: event)
             }
 
             return Unmanaged.passUnretained(event)
         }
 
-        tap = CGEvent.tapCreate(
+        guard let newTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: CGEventMask(mask),
             callback: callback,
             userInfo: nil
-        )
+        ) else {
+            setEventTapActive(false)
+            scheduleEventTapRetry()
+            return
+        }
 
-        if let t = tap {
-            let s = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, t, 0)
-            CFRunLoopAddSource(CFRunLoopGetMain(), s, .commonModes)
-            CGEvent.tapEnable(tap: t, enable: true)
-            self.isActive = true
-        } else {
-            self.isActive = false
-            retryTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-                self?.start()
-            }
+        tap = newTap
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, newTap, 0) else {
+            tearDownEventTap()
+            scheduleEventTapRetry()
+            return
+        }
+
+        tapRunLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: newTap, enable: true)
+        updateEventTapActiveState()
+
+        if !isActive {
+            tearDownEventTap()
+            scheduleEventTapRetry()
         }
     }
 
-    private func handleKeyDown(proxy: CGEventTapProxy, keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+    // 系统会在回调超时或用户输入保护场景中禁用 Tap。
+    // 先尝试原地启用，MachPort 已失效或启用失败时再异步重建。
+    private func handleEventTapDisabled() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleEventTapDisabled()
+            }
+            return
+        }
+
+        setEventTapActive(false)
+        resetInFlightKeyState()
+
+        if AXIsProcessTrusted(), let tap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            updateEventTapActiveState()
+            if isActive {
+                return
+            }
+        }
+
+        scheduleEventTapRebuild()
+    }
+
+    private func scheduleEventTapRebuild() {
+        guard !tapRecoveryScheduled else { return }
+        tapRecoveryScheduled = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.tapRecoveryScheduled = false
+            self.tearDownEventTap()
+            self.start()
+        }
+    }
+
+    private func scheduleEventTapRetry() {
+        guard retryTimer == nil else { return }
+
+        let timer = Timer(timeInterval: 2.0, repeats: false) { [weak self] _ in
+            self?.retryTimer = nil
+            self?.start()
+        }
+        retryTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func tearDownEventTap() {
+        resetInFlightKeyState()
+
+        if let source = tapRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+            CFRunLoopSourceInvalidate(source)
+            tapRunLoopSource = nil
+        }
+
+        if let tap {
+            if CFMachPortIsValid(tap) {
+                CGEvent.tapEnable(tap: tap, enable: false)
+                CFMachPortInvalidate(tap)
+            }
+            self.tap = nil
+        }
+
+        setEventTapActive(false)
+    }
+
+    private func resetInFlightKeyState() {
+        let activeMappings = Array(activeSingleMappings.values)
+        activeSingleMappings.removeAll()
+        for activeMapping in activeMappings {
+            Self.postMappedKeyUpWithModifierBridge(
+                mapping: activeMapping.mapping,
+                targetModifiers: activeMapping.targetModifiers,
+                restoreModifiers: activeMapping.sourceModifiers
+            )
+        }
+
+        if isWheelShowing {
+            RadialWheelManager.shared.hide()
+        }
+        multiMappingState = nil
+        isWheelShowing = false
+        pauseHotkeyPressedKeyCode = nil
+    }
+
+    private func handleKeyDown(keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if keyCode == 53 && isWheelShowing {
             RadialWheelManager.shared.cancel()
             multiMappingState = nil
@@ -296,7 +529,7 @@ class MyEngine: ObservableObject {
                 isWheelShowing = false
             }
             let m = state.matches[0]
-            Self.postMappedKeyPairWithModifierBridge(proxy: proxy, mapping: m, sourceModifiers: state.flags, restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask)
+            Self.postMappedKeyPairWithModifierBridge(mapping: m, sourceModifiers: state.flags, restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask)
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -320,8 +553,12 @@ class MyEngine: ObservableObject {
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
-            let targetModifiers = Self.postMappedKeyDownWithModifierBridge(proxy: proxy, mapping: m, sourceModifiers: modifiers, isAutorepeat: isAutorepeat)
-            activeSingleMappings[keyCode] = ActiveMapping(mapping: m, targetModifiers: targetModifiers)
+            let targetModifiers = Self.postMappedKeyDownWithModifierBridge(mapping: m, sourceModifiers: modifiers, isAutorepeat: isAutorepeat)
+            activeSingleMappings[keyCode] = ActiveMapping(
+                mapping: m,
+                targetModifiers: targetModifiers,
+                sourceModifiers: modifiers
+            )
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -333,10 +570,9 @@ class MyEngine: ObservableObject {
         return Unmanaged.passUnretained(originalEvent)
     }
 
-    private func handleKeyUp(proxy: CGEventTapProxy, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+    private func handleKeyUp(keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if let activeMapping = activeSingleMappings.removeValue(forKey: keyCode) {
             Self.postMappedKeyUpWithModifierBridge(
-                proxy: proxy,
                 mapping: activeMapping.mapping,
                 targetModifiers: activeMapping.targetModifiers,
                 restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
@@ -355,7 +591,6 @@ class MyEngine: ObservableObject {
             }
 
             Self.postMappedKeyPairWithModifierBridge(
-                proxy: proxy,
                 mapping: mapping,
                 sourceModifiers: state.flags,
                 restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
@@ -374,44 +609,59 @@ class MyEngine: ObservableObject {
 
     private func isRuleBlacklisted(_ mapping: MyMap, for bundleId: String?) -> Bool {
         guard let bundleId else { return false }
-        return mapping.appBlacklist.contains(bundleId)
+        return blacklist.contains(bundleId) || mapping.appBlacklist.contains(bundleId)
     }
 
     func addGlobalBlacklistApp(_ bundleId: String) {
-        var didChange = false
-
         if !blacklist.contains(bundleId) {
             blacklist.append(bundleId)
-            didChange = true
-        }
-
-        for idx in list.indices where !list[idx].appBlacklist.contains(bundleId) {
-            list[idx].appBlacklist.append(bundleId)
-            didChange = true
-        }
-
-        if didChange {
-            MappingStore.shared.saveList(list)
         }
     }
 
-    private func applyGlobalBlacklistToRulesIfNeeded() {
-        guard !blacklist.isEmpty,
-              !MappingStore.shared.hasMigratedGlobalBlacklist() else { return }
+    private func separateGlobalBlacklistFromRulesIfNeeded() {
+        guard !MappingStore.shared.hasSeparatedGlobalBlacklistFromRules() else { return }
 
+        let globalBundleIds = Set(blacklist)
+        let copiedGlobalBundleIds = Set(globalBundleIds.filter { bundleId in
+            !list.isEmpty && list.allSatisfy { $0.appBlacklist.contains(bundleId) }
+        })
+        let defaultMappings = MappingStore.defaultMappings()
+        let defaultRuleBlacklists = Dictionary(
+            uniqueKeysWithValues: defaultMappings.map { ($0.id, Set($0.appBlacklist)) }
+        )
+        let hasSameKeySignature: (MyMap, MyMap) -> Bool = { lhs, rhs in
+            lhs.fCode == rhs.fCode
+                && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
+                && lhs.tCode == rhs.tCode
+                && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
+        }
+        var normalizedList = list
         var didChange = false
-        for idx in list.indices {
-            let beforeCount = list[idx].appBlacklist.count
-            list[idx].mergeAppBlacklist(blacklist)
-            if list[idx].appBlacklist.count != beforeCount {
+        for idx in normalizedList.indices {
+            let beforeCount = normalizedList[idx].appBlacklist.count
+            let currentMapping = normalizedList[idx]
+            let intrinsicBundleIds: Set<String>
+            if let matchedByID = defaultRuleBlacklists[currentMapping.id] {
+                intrinsicBundleIds = matchedByID
+            } else if let matchedBySignature = defaultMappings.first(where: {
+                hasSameKeySignature(currentMapping, $0)
+            }) {
+                intrinsicBundleIds = Set(matchedBySignature.appBlacklist)
+            } else {
+                intrinsicBundleIds = []
+            }
+            normalizedList[idx].appBlacklist.removeAll {
+                copiedGlobalBundleIds.contains($0) && !intrinsicBundleIds.contains($0)
+            }
+            if normalizedList[idx].appBlacklist.count != beforeCount {
                 didChange = true
             }
         }
 
         if didChange {
-            MappingStore.shared.saveList(list)
+            list = normalizedList
         }
 
-        MappingStore.shared.markGlobalBlacklistMigrated()
+        MappingStore.shared.markGlobalBlacklistSeparatedFromRules()
     }
 }
