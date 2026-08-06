@@ -86,6 +86,8 @@
 "toast.content" = "显示内容";
 "toast.behavior" = "显示行为";
 "toast.appearance" = "外观";
+"toast.enabled" = "启用弹窗提示";
+"toast.enabled.desc" = "规则触发时显示弹窗提示";
 "toast.show.from.key" = "原按键";
 "toast.show.from.key.desc" = "在提示中显示触发映射的原始按键";
 "toast.show.arrow" = "箭头";

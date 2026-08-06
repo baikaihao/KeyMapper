@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ToastStyle {
+    var isEnabled: Bool = true
     var showFromKey: Bool = true
     var showArrow: Bool = true
     var showToKey: Bool = true
@@ -16,6 +17,7 @@ struct ToastStyle {
     func loadFromDefaults() -> ToastStyle {
         var s = self
         let d = UserDefaults.standard
+        s.isEnabled = d.object(forKey: "toast_enabled") == nil ? s.isEnabled : d.bool(forKey: "toast_enabled")
         s.showFromKey = d.object(forKey: "toast_show_from_key") == nil ? s.showFromKey : d.bool(forKey: "toast_show_from_key")
         s.showArrow = d.object(forKey: "toast_show_arrow") == nil ? s.showArrow : d.bool(forKey: "toast_show_arrow")
         s.showToKey = d.object(forKey: "toast_show_to_key") == nil ? s.showToKey : d.bool(forKey: "toast_show_to_key")
@@ -41,6 +43,7 @@ struct ToastStyle {
 
     func saveToDefaults() {
         let d = UserDefaults.standard
+        d.set(isEnabled, forKey: "toast_enabled")
         d.set(showFromKey, forKey: "toast_show_from_key")
         d.set(showArrow, forKey: "toast_show_arrow")
         d.set(showToKey, forKey: "toast_show_to_key")
