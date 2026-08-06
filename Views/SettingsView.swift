@@ -528,6 +528,17 @@ struct ToastSettingsView: View {
                     ) {
                         VStack(spacing: 0) {
                             SettingsRow(
+                                title: NSLocalizedString("toast.enabled", comment: ""),
+                                description: NSLocalizedString("toast.enabled.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.isEnabled)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.isEnabled) { newValue in updateStyle { $0.isEnabled = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
                                 title: NSLocalizedString("toast.always.on.top", comment: ""),
                                 description: NSLocalizedString("toast.always.on.top.desc", comment: "")
                             ) {
