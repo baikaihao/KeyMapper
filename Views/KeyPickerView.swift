@@ -50,36 +50,8 @@ struct KeyGridItem: Identifiable {
     let id: UInt16
     let name: String
 
-    private static func localizedName(_ key: String, fallback: String) -> String {
-        NSLocalizedString(key, value: fallback, comment: "")
-    }
-
-    private static func numpadName(_ key: String) -> String {
-        localizedName("keypicker.key.numpad", fallback: "Num") + " " + key
-    }
-
     // 按 QWERTY 键盘布局组织的按键网格数据
     static let organizedRows: [[KeyGridItem]] = [
-        // 功能键
-        [
-            KeyGridItem(id: 122, name: "F1"), KeyGridItem(id: 120, name: "F2"),
-            KeyGridItem(id: 99, name: "F3"), KeyGridItem(id: 118, name: "F4"),
-            KeyGridItem(id: 96, name: "F5"), KeyGridItem(id: 97, name: "F6"),
-        ],
-        [
-            KeyGridItem(id: 98, name: "F7"), KeyGridItem(id: 100, name: "F8"),
-            KeyGridItem(id: 101, name: "F9"), KeyGridItem(id: 109, name: "F10"),
-            KeyGridItem(id: 103, name: "F11"), KeyGridItem(id: 111, name: "F12"),
-        ],
-        // 数字键
-        [
-            KeyGridItem(id: 50, name: "`"),
-            KeyGridItem(id: 18, name: "1"), KeyGridItem(id: 19, name: "2"),
-            KeyGridItem(id: 20, name: "3"), KeyGridItem(id: 21, name: "4"),
-            KeyGridItem(id: 23, name: "5"), KeyGridItem(id: 22, name: "6"),
-            KeyGridItem(id: 26, name: "7"), KeyGridItem(id: 28, name: "8"),
-            KeyGridItem(id: 25, name: "9"), KeyGridItem(id: 29, name: "0"),
-        ],
         // 字母键 - 第一行 (QWERTYUIOP)
         [
             KeyGridItem(id: 12, name: "Q"), KeyGridItem(id: 13, name: "W"),
@@ -103,6 +75,14 @@ struct KeyGridItem: Identifiable {
             KeyGridItem(id: 11, name: "B"), KeyGridItem(id: 45, name: "N"),
             KeyGridItem(id: 46, name: "M"),
         ],
+        // 数字键
+        [
+            KeyGridItem(id: 18, name: "1"), KeyGridItem(id: 19, name: "2"),
+            KeyGridItem(id: 20, name: "3"), KeyGridItem(id: 21, name: "4"),
+            KeyGridItem(id: 23, name: "5"), KeyGridItem(id: 22, name: "6"),
+            KeyGridItem(id: 26, name: "7"), KeyGridItem(id: 28, name: "8"),
+            KeyGridItem(id: 25, name: "9"), KeyGridItem(id: 29, name: "0"),
+        ],
         // 符号键
         [
             KeyGridItem(id: 27, name: "-"), KeyGridItem(id: 24, name: "="),
@@ -111,43 +91,16 @@ struct KeyGridItem: Identifiable {
             KeyGridItem(id: 39, name: "'"), KeyGridItem(id: 43, name: ","),
             KeyGridItem(id: 47, name: "."), KeyGridItem(id: 44, name: "/"),
         ],
-        // 编辑键
+        // 功能键
         [
             KeyGridItem(id: 36, name: "↩"), KeyGridItem(id: 51, name: "⌫"),
-            KeyGridItem(id: 117, name: "⌦"),
             KeyGridItem(id: 53, name: "Esc"), KeyGridItem(id: 48, name: "Tab"),
-            KeyGridItem(id: 49, name: localizedName("keypicker.key.space", fallback: "Space")),
+            KeyGridItem(id: 49, name: "Space"),
         ],
-        // 导航键
+        // 方向键
         [
-            KeyGridItem(id: 115, name: localizedName("keypicker.key.home", fallback: "Home")),
-            KeyGridItem(id: 119, name: localizedName("keypicker.key.end", fallback: "End")),
-            KeyGridItem(id: 116, name: localizedName("keypicker.key.pageup", fallback: "PgUp")),
-            KeyGridItem(id: 121, name: localizedName("keypicker.key.pagedown", fallback: "PgDn")),
             KeyGridItem(id: 123, name: "←"), KeyGridItem(id: 124, name: "→"),
             KeyGridItem(id: 126, name: "↑"), KeyGridItem(id: 125, name: "↓"),
-        ],
-        // 数字键盘
-        [
-            KeyGridItem(id: 89, name: numpadName("7")),
-            KeyGridItem(id: 91, name: numpadName("8")),
-            KeyGridItem(id: 92, name: numpadName("9")),
-            KeyGridItem(id: 75, name: numpadName("/")), KeyGridItem(id: 67, name: numpadName("*")),
-            KeyGridItem(id: 71, name: localizedName("keypicker.key.clear", fallback: "Clear")),
-        ],
-        [
-            KeyGridItem(id: 86, name: numpadName("4")),
-            KeyGridItem(id: 87, name: numpadName("5")),
-            KeyGridItem(id: 88, name: numpadName("6")),
-            KeyGridItem(id: 78, name: numpadName("-")), KeyGridItem(id: 69, name: numpadName("+")),
-            KeyGridItem(id: 81, name: numpadName("=")),
-        ],
-        [
-            KeyGridItem(id: 83, name: numpadName("1")),
-            KeyGridItem(id: 84, name: numpadName("2")),
-            KeyGridItem(id: 85, name: numpadName("3")),
-            KeyGridItem(id: 82, name: numpadName("0")),
-            KeyGridItem(id: 65, name: numpadName(".")), KeyGridItem(id: 76, name: numpadName("↩")),
         ],
     ]
 }
@@ -167,6 +120,8 @@ struct KeyGridItem: Identifiable {
 struct KeyPickerView: View {
     // 选中的按键组合输出绑定
     @Binding var selection: (UInt16, UInt64)?
+    // Option/Command 的左右侧选择
+    @Binding var modifierSides: ModifierSideSelection
     // 当前选中的主按键 keyCode
     @State private var selectedKeyCode: UInt16? = nil
     // 当前选中的修饰键列表（动态扩展）
@@ -177,6 +132,18 @@ struct KeyPickerView: View {
     var onDismiss: (() -> Void)? = nil
     // 确认回调
     var onConfirm: (() -> Void)? = nil
+
+    init(
+        selection: Binding<(UInt16, UInt64)?>,
+        modifierSides: Binding<ModifierSideSelection> = .constant(.any),
+        onDismiss: (() -> Void)? = nil,
+        onConfirm: (() -> Void)? = nil
+    ) {
+        _selection = selection
+        _modifierSides = modifierSides
+        self.onDismiss = onDismiss
+        self.onConfirm = onConfirm
+    }
 
     // 可添加的修饰键（排除已选中的）
     private var availableModifiers: [ModifierKey] {
@@ -193,7 +160,7 @@ struct KeyPickerView: View {
     // 当前组合的可读名称
     private var combinationName: String {
         guard let code = selectedKeyCode else { return "" }
-        return MyMap.getName(code, combinedFlags)
+        return MyMap.getName(code, combinedFlags, modifierSides)
     }
 
     var body: some View {
@@ -256,6 +223,21 @@ struct KeyPickerView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                }
+            }
+
+            if modifierKeys.contains(.option) || modifierKeys.contains(.command) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(NSLocalizedString("keypicker.side", comment: ""))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+
+                    if modifierKeys.contains(.option) {
+                        sidePicker(for: .option)
+                    }
+                    if modifierKeys.contains(.command) {
+                        sidePicker(for: .command)
+                    }
                 }
             }
 
@@ -413,9 +395,29 @@ struct KeyPickerView: View {
 
     // MARK: - 操作方法
 
+    private func sidePicker(for modifier: ModifierKey) -> some View {
+        HStack(spacing: 8) {
+            Text(modifier.symbol + " " + modifier.displayName)
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 86, alignment: .leading)
+
+            Picker("", selection: Binding(
+                get: { modifierSides.side(for: modifier) },
+                set: { modifierSides.setSide($0, for: modifier) }
+            )) {
+                Text(NSLocalizedString("keypicker.side.any", comment: "")).tag(ModifierSide.any)
+                Text(NSLocalizedString("keypicker.side.left", comment: "")).tag(ModifierSide.left)
+                Text(NSLocalizedString("keypicker.side.right", comment: "")).tag(ModifierSide.right)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+    }
+
     private func toggleModifier(_ mod: ModifierKey) {
         if let index = modifierKeys.firstIndex(of: mod) {
             modifierKeys.remove(at: index)
+            modifierSides.setSide(.any, for: mod)
         } else {
             modifierKeys.append(mod)
         }
@@ -429,6 +431,7 @@ struct KeyPickerView: View {
 
     private func removeModifier(at index: Int) {
         guard index < modifierKeys.count else { return }
+        modifierSides.setSide(.any, for: modifierKeys[index])
         modifierKeys.remove(at: index)
     }
 
@@ -446,6 +449,12 @@ struct KeyPickerView: View {
             let (code, flags) = sel
             selectedKeyCode = code
             modifierKeys = parseModifiersFromFlags(flags)
+            if !modifierKeys.contains(.option) { modifierSides.option = .any }
+            if !modifierKeys.contains(.command) { modifierSides.command = .any }
+        } else {
+            selectedKeyCode = nil
+            modifierKeys = []
+            modifierSides = .any
         }
     }
 

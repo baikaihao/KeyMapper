@@ -626,55 +626,6 @@ struct ToastSettingsView: View {
         ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     settingsSection(
-                        title: NSLocalizedString("toast.content", comment: "")
-                    ) {
-                        VStack(spacing: 0) {
-                            SettingsRow(
-                                title: NSLocalizedString("toast.show.from.key", comment: ""),
-                                description: NSLocalizedString("toast.show.from.key.desc", comment: "")
-                            ) {
-                                Toggle("", isOn: $toastStyle.showFromKey)
-                                    .toggleStyle(.switch)
-                                    .onChange(of: toastStyle.showFromKey) { newValue in updateStyle { $0.showFromKey = newValue } }
-                            }
-
-                            Divider()
-
-                            SettingsRow(
-                                title: NSLocalizedString("toast.show.arrow", comment: ""),
-                                description: NSLocalizedString("toast.show.arrow.desc", comment: "")
-                            ) {
-                                Toggle("", isOn: $toastStyle.showArrow)
-                                    .toggleStyle(.switch)
-                                    .onChange(of: toastStyle.showArrow) { newValue in updateStyle { $0.showArrow = newValue } }
-                            }
-
-                            Divider()
-
-                            SettingsRow(
-                                title: NSLocalizedString("toast.show.to.key", comment: ""),
-                                description: NSLocalizedString("toast.show.to.key.desc", comment: "")
-                            ) {
-                                Toggle("", isOn: $toastStyle.showToKey)
-                                    .toggleStyle(.switch)
-                                    .onChange(of: toastStyle.showToKey) { newValue in updateStyle { $0.showToKey = newValue } }
-                            }
-
-                            Divider()
-
-                            SettingsRow(
-                                title: NSLocalizedString("toast.show.note", comment: ""),
-                                description: NSLocalizedString("toast.show.note.desc", comment: "")
-                            ) {
-                                Toggle("", isOn: $toastStyle.showNote)
-                                    .toggleStyle(.switch)
-                                    .onChange(of: toastStyle.showNote) { newValue in updateStyle { $0.showNote = newValue } }
-                            }
-                        }
-                        .settingsCardStyle()
-                    }
-
-                    settingsSection(
                         title: NSLocalizedString("toast.behavior", comment: "")
                     ) {
                         VStack(spacing: 0) {
@@ -728,6 +679,55 @@ struct ToastSettingsView: View {
                                         .font(.system(size: 12, design: .monospaced))
                                         .frame(width: 42, alignment: .trailing)
                                 }
+                            }
+                        }
+                        .settingsCardStyle()
+                    }
+
+                    settingsSection(
+                        title: NSLocalizedString("toast.content", comment: "")
+                    ) {
+                        VStack(spacing: 0) {
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.from.key", comment: ""),
+                                description: NSLocalizedString("toast.show.from.key.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showFromKey)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showFromKey) { newValue in updateStyle { $0.showFromKey = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.arrow", comment: ""),
+                                description: NSLocalizedString("toast.show.arrow.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showArrow)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showArrow) { newValue in updateStyle { $0.showArrow = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.to.key", comment: ""),
+                                description: NSLocalizedString("toast.show.to.key.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showToKey)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showToKey) { newValue in updateStyle { $0.showToKey = newValue } }
+                            }
+
+                            Divider()
+
+                            SettingsRow(
+                                title: NSLocalizedString("toast.show.note", comment: ""),
+                                description: NSLocalizedString("toast.show.note.desc", comment: "")
+                            ) {
+                                Toggle("", isOn: $toastStyle.showNote)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: toastStyle.showNote) { newValue in updateStyle { $0.showNote = newValue } }
                             }
                         }
                         .settingsCardStyle()

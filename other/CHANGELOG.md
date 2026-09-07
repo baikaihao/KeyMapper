@@ -2,6 +2,58 @@
 
 All notable changes to KeyMapper will be documented in this file.
 
+## KeyMapper 2.3.4
+
+### 更新内容
+
+- 新增键盘选择器对左侧/右侧 Option 和 Command 的选择。
+- 录制、规则保存、导入导出、规则显示及运行时匹配均支持修饰键侧别。
+- 映射输出会发送对应物理侧别的修饰键事件，修复右侧 Option+C 等场景被系统输入为特殊字符的问题。
+- 旧规则和旧配置继续按任意侧兼容。
+- 移除不需要的 F1-F12、反引号、向前删除、Home/End、Page Up/Page Down 和数字键盘选择项。
+- 弹窗提示设置中的“显示行为”移至页面首位，“启用弹窗提示”作为第一项。
+
+## KeyMapper 2.3.4
+
+### What's Changed
+
+- Added left/right side selection for Option and Command in the key picker.
+- Added modifier-side support to recording, rule persistence, import/export, rule display, and runtime matching.
+- Mapped output now sends the selected physical modifier key events, fixing cases such as right Option+C being interpreted as a special character by macOS.
+- Existing rules and configuration files remain backward-compatible and continue to match any physical side when no side is specified.
+- Removed unsupported key picker entries for F1-F12, grave accent, Forward Delete, Home/End, Page Up/Page Down, and the numeric keypad.
+- Moved the popup alert “Display Behavior” section to the top of its settings page, with “Enable Popup Alerts” as the first item.
+
+---
+
+## KeyMapper 2.3.3
+
+### 更新内容
+
+- 新增弹窗提示总开关：可一键关闭全部映射触发提示，关闭时会同步收起当前提示。
+- 优化全局黑名单管理：新增独立黑名单页面，支持查看应用数量、从运行中的应用快速添加，以及从访达选择应用。
+- 提升配置导入安全性：导入前会检查配置版本、格式、规则数量、键码、备注及黑名单，并在覆盖当前配置前请求确认。
+- 加强配置数据保护：导入前会自动备份当前配置；校验、备份或保存失败时不会修改现有设置。导入、导出和备份统一使用版本化格式及原子写入。
+- 提升自动备份可靠性：应用启动后会恢复备份计划，备份改为后台串行执行，并可在设置页查看进度、下次备份时间和最近错误。
+- 提升按键监听稳定性：监听被系统临时禁用、辅助功能权限变化或事件端口失效后，会自动检测并恢复映射。
+- 优化暂停快捷键与录制流程：支持更改、取消和恢复默认快捷键；离开页面或窗口失焦时会自动结束录制。
+- 修复监听恢复时可能遗留目标按键或修饰键状态、长按暂停快捷键反复切换、窗口意外抢占焦点等问题。
+
+## KeyMapper 2.3.3
+
+### What's Changed
+
+- Added a popup alert master switch that disables all mapping notifications and dismisses currently visible alerts.
+- Improved global blacklist management with a dedicated page, app counts, quick selection from running apps, and Finder-based app selection.
+- Improved configuration import safety by validating the version, structure, rule count, key codes, notes, and blacklists before asking for overwrite confirmation.
+- Strengthened configuration data protection with an automatic pre-import backup. Existing settings remain unchanged if validation, backup, or persistence fails. Import, export, and backup now use a shared versioned format with atomic writes.
+- Improved automatic backup reliability with persistent scheduling, serial background execution, progress indicators, the next backup time, and the latest error status.
+- Improved keyboard listener reliability with automatic health checks and recovery after system disablement, accessibility permission changes, or event port failures.
+- Improved pause hotkey and recording workflows with explicit change, cancel, and restore-default actions. Recording now ends automatically when leaving the page or losing window focus.
+- Fixed stuck target keys or modifiers during listener recovery, repeated pause toggles while holding the hotkey, and unexpected window focus changes.
+
+---
+
 ## [2.2.0] - 2026-05-01
 
 ### Added
@@ -143,6 +195,8 @@ All notable changes to KeyMapper will be documented in this file.
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 2.3.4 | 2026-09-07 | 支持左右 Option/Command 侧别映射，修复右侧修饰键输入问题，精简按键选择器 / Added left/right Option/Command mapping, fixed right-side modifier input, simplified the key picker |
+| 2.3.3 | 2026-08-07 | 新增提示总开关与独立黑名单管理，强化配置、备份及按键监听可靠性 / Added a popup master switch and dedicated blacklist management, with safer configuration, backup, and keyboard monitoring |
 | 2.2.0 | 2026-05-01 | 新增按键选择器与规则编辑，修复录制兼容性与登录自启问题 / Added key picker and rule editing, fixed recording compatibility and launch at login issues |
 | 2.1.2 | 2026-04-28 | 修复开机启动窗口问题，优化授权引导 / Fixed launch at login window issues, improved authorization guidance |
 | 2.1.0 | 2026-04-25 | 新增规则备注、自动备份、深色模式图标支持 / Added rule notes, auto backup, dark mode icons |
