@@ -23,9 +23,27 @@ struct KeyLogic: NSViewRepresentable {
     @Binding var r2: Bool
     @Binding var t1: (UInt16, UInt64)?
     @Binding var t2: (UInt16, UInt64)?
+    @Binding var s1: ModifierSideSelection
+    @Binding var s2: ModifierSideSelection
+
+    init(
+        r1: Binding<Bool>,
+        r2: Binding<Bool>,
+        t1: Binding<(UInt16, UInt64)?>,
+        t2: Binding<(UInt16, UInt64)?>,
+        s1: Binding<ModifierSideSelection> = .constant(.any),
+        s2: Binding<ModifierSideSelection> = .constant(.any)
+    ) {
+        _r1 = r1
+        _r2 = r2
+        _t1 = t1
+        _t2 = t2
+        _s1 = s1
+        _s2 = s2
+    }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(r1: $r1, r2: $r2, t1: $t1, t2: $t2)
+        Coordinator(r1: $r1, r2: $r2, t1: $t1, t2: $t2, s1: $s1, s2: $s2)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -59,12 +77,23 @@ struct KeyLogic: NSViewRepresentable {
         @Binding var r2: Bool
         @Binding var t1: (UInt16, UInt64)?
         @Binding var t2: (UInt16, UInt64)?
+        @Binding var s1: ModifierSideSelection
+        @Binding var s2: ModifierSideSelection
 
-        init(r1: Binding<Bool>, r2: Binding<Bool>, t1: Binding<(UInt16, UInt64)?>, t2: Binding<(UInt16, UInt64)?>) {
+        init(
+            r1: Binding<Bool>,
+            r2: Binding<Bool>,
+            t1: Binding<(UInt16, UInt64)?>,
+            t2: Binding<(UInt16, UInt64)?>,
+            s1: Binding<ModifierSideSelection>,
+            s2: Binding<ModifierSideSelection>
+        ) {
             _r1 = r1
             _r2 = r2
             _t1 = t1
             _t2 = t2
+            _s1 = s1
+            _s2 = s2
         }
     }
 }
@@ -109,12 +138,15 @@ class KV: NSView {
     private func handleKeyEvent(_ event: NSEvent) {
         let code = UInt16(event.keyCode)
         let flags = UInt64(event.modifierFlags.rawValue) & ModifierKey.allMask
+        let sides = ModifierSideTracker.shared.sideSelection(for: flags)
 
         if coordinator.r1 == true {
             coordinator.t1 = (code, flags)
+            coordinator.s1 = sides
             coordinator.r1 = false
         } else if coordinator.r2 == true {
             coordinator.t2 = (code, flags)
+            coordinator.s2 = sides
             coordinator.r2 = false
         }
 
@@ -127,11 +159,31 @@ class KV: NSView {
     // 按键事件处理。
     // 录制模式下捕获并吞掉事件；若异常残留为第一响应者，则先主动释放。
     override func keyDown(with e: NSEvent) {
+        ModifierSideTracker.shared.updateKeyEvent(keyCode: UInt16(e.keyCode), isDown: true)
         if coordinator.r1 == true || coordinator.r2 == true {
             handleKeyEvent(e)
         } else if window?.firstResponder === self {
             window?.makeFirstResponder(nil)
         }
+    }
+
+    override func keyUp(with e: NSEvent) {
+        ModifierSideTracker.shared.updateKeyEvent(keyCode: UInt16(e.keyCode), isDown: false)
+        if coordinator.r1 == true || coordinator.r2 == true {
+            return
+        }
+        super.keyUp(with: e)
+    }
+
+    override func flagsChanged(with e: NSEvent) {
+        ModifierSideTracker.shared.updateFlagsChanged(
+            keyCode: UInt16(e.keyCode),
+            flags: UInt64(e.modifierFlags.rawValue)
+        )
+        if coordinator.r1 == true || coordinator.r2 == true {
+            return
+        }
+        super.flagsChanged(with: e)
     }
 
     // 拦截修饰键组合事件（如 ⌘+A、⌃+C 等）。

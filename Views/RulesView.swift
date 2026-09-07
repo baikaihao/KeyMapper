@@ -11,6 +11,8 @@ struct RulesView: View {
     @StateObject var engine = MyEngine.shared
     @State private var tmpTrig: (UInt16, UInt64)?
     @State private var tmpTarg: (UInt16, UInt64)?
+    @State private var tmpTrigSides: ModifierSideSelection = .any
+    @State private var tmpTargSides: ModifierSideSelection = .any
     @State private var tmpNote: String = ""
     @State private var isRec1 = false
     @State private var isRec2 = false
@@ -24,6 +26,7 @@ struct RulesView: View {
     @State private var editingKeyType: KeyType = .source
     @State private var showEditKeyPicker = false
     @State private var editSelection: (UInt16, UInt64)? = nil
+    @State private var editSelectionSides: ModifierSideSelection = .any
     @State private var runningApps: [RunningAppInfo] = []
 
     enum KeyType {
@@ -80,12 +83,14 @@ struct RulesView: View {
                             ),
                             onEditSource: {
                                 editSelection = (m.fCode, m.fFlags)
+                                editSelectionSides = m.fModifierSides
                                 editingRuleId = m.id
                                 editingKeyType = .source
                                 showEditKeyPicker = true
                             },
                             onEditTarget: {
                                 editSelection = (m.tCode, m.tFlags)
+                                editSelectionSides = m.tModifierSides
                                 editingRuleId = m.id
                                 editingKeyType = .target
                                 showEditKeyPicker = true
@@ -134,7 +139,7 @@ struct RulesView: View {
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 4) {
-                            RecordBox(isRec: $isRec1, val: $tmpTrig) {
+                            RecordBox(isRec: $isRec1, val: $tmpTrig, modifierSides: tmpTrigSides) {
                                 if isRec1 { isRec2 = false }
                             }
 
@@ -160,7 +165,7 @@ struct RulesView: View {
                             .buttonStyle(.plain)
                             .help(NSLocalizedString("rules.pick.key", comment: ""))
                             .popover(isPresented: $showSourceKeyPicker) {
-                                KeyPickerView(selection: $tmpTrig, onDismiss: {
+                                KeyPickerView(selection: $tmpTrig, modifierSides: $tmpTrigSides, onDismiss: {
                                     showSourceKeyPicker = false
                                 }, onConfirm: {
                                     showSourceKeyPicker = false
@@ -182,7 +187,7 @@ struct RulesView: View {
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 4) {
-                            RecordBox(isRec: $isRec2, val: $tmpTarg) {
+                            RecordBox(isRec: $isRec2, val: $tmpTarg, modifierSides: tmpTargSides) {
                                 if isRec2 { isRec1 = false }
                             }
 
@@ -207,7 +212,7 @@ struct RulesView: View {
                             .buttonStyle(.plain)
                             .help(NSLocalizedString("rules.pick.key", comment: ""))
                             .popover(isPresented: $showTargetKeyPicker) {
-                                KeyPickerView(selection: $tmpTarg, onDismiss: {
+                                KeyPickerView(selection: $tmpTarg, modifierSides: $tmpTargSides, onDismiss: {
                                     showTargetKeyPicker = false
                                 }, onConfirm: {
                                     showTargetKeyPicker = false
@@ -245,7 +250,7 @@ struct RulesView: View {
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg))
+        .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg, s1: $tmpTrigSides, s2: $tmpTargSides))
         .onChange(of: isRec1) { _ in engine.isRecording = isRec1 || isRec2 }
         .onChange(of: isRec2) { _ in engine.isRecording = isRec1 || isRec2 }
         // 打开选择器时退出录制模式
@@ -269,7 +274,7 @@ struct RulesView: View {
                         editSelection = nil
                     }
                     .overlay(alignment: .center) {
-                        KeyPickerView(selection: $editSelection, onDismiss: {
+                        KeyPickerView(selection: $editSelection, modifierSides: $editSelectionSides, onDismiss: {
                             showEditKeyPicker = false
                         }, onConfirm: {
                             applyKeyEdit()
@@ -307,21 +312,34 @@ struct RulesView: View {
             case .source:
                 engine.list[idx].fCode = newKey.0
                 engine.list[idx].fFlags = newKey.1
+                engine.list[idx].fModifierSides = editSelectionSides
             case .target:
                 engine.list[idx].tCode = newKey.0
                 engine.list[idx].tFlags = newKey.1
+                engine.list[idx].tModifierSides = editSelectionSides
             }
         }
         editingRuleId = nil
         editSelection = nil
+        editSelectionSides = .any
     }
 
     func addMapping() {
         guard !isRec1, !isRec2, let a = tmpTrig, let b = tmpTarg else { return }
 
-        engine.list.append(MyMap(fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1, note: tmpNote))
+        engine.list.append(MyMap(
+            fCode: a.0,
+            fFlags: a.1,
+            tCode: b.0,
+            tFlags: b.1,
+            fModifierSides: tmpTrigSides,
+            tModifierSides: tmpTargSides,
+            note: tmpNote
+        ))
         tmpTrig = nil
         tmpTarg = nil
+        tmpTrigSides = .any
+        tmpTargSides = .any
         tmpNote = ""
         cancelKeyRecording()
     }
@@ -354,8 +372,10 @@ struct RulesView: View {
     private func isSameRule(_ lhs: MyMap, _ rhs: MyMap) -> Bool {
         lhs.fCode == rhs.fCode
             && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
+            && lhs.fModifierSides == rhs.fModifierSides
             && lhs.tCode == rhs.tCode
             && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
+            && lhs.tModifierSides == rhs.tModifierSides
     }
 
     func saveNote(for id: UUID) {
@@ -441,7 +461,7 @@ struct RuleItemRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         RuleKeyButton(
-                            title: MyMap.getName(mapping.fCode, mapping.fFlags),
+                            title: MyMap.getName(mapping.fCode, mapping.fFlags, mapping.fModifierSides),
                             foregroundColor: .primary,
                             action: onEditSource
                         )
@@ -451,7 +471,7 @@ struct RuleItemRow: View {
                             .foregroundColor(.secondary)
 
                         RuleKeyButton(
-                            title: MyMap.getName(mapping.tCode, mapping.tFlags),
+                            title: MyMap.getName(mapping.tCode, mapping.tFlags, mapping.tModifierSides),
                             foregroundColor: .accentColor,
                             action: onEditTarget
                         )
@@ -811,6 +831,7 @@ struct RuleKeyButton: View {
 struct RecordBox: View {
     @Binding var isRec: Bool
     @Binding var val: (UInt16, UInt64)?
+    let modifierSides: ModifierSideSelection
     var onToggle: () -> Void
 
     var body: some View {
@@ -823,7 +844,7 @@ struct RecordBox: View {
                     .font(.system(size: 12))
                     .foregroundColor(.accentColor)
             } else if let v = val {
-                Text(MyMap.getName(v.0, v.1))
+                Text(MyMap.getName(v.0, v.1, modifierSides))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.accentColor)
             } else {
