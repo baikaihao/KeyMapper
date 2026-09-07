@@ -203,6 +203,10 @@
 /* Key Picker */
 "keypicker.title" = "Key Selector";
 "keypicker.modifiers" = "Modifier Keys";
+"keypicker.side" = "Physical side";
+"keypicker.side.any" = "Any";
+"keypicker.side.left" = "Left";
+"keypicker.side.right" = "Right";
 "keypicker.add.modifier" = "Add Modifier";
 "keypicker.layer" = "Layer";
 "keypicker.key" = "Key";
@@ -210,13 +214,6 @@
 "keypicker.no.selection" = "No key selected";
 "keypicker.confirm" = "Confirm";
 "keypicker.cancel" = "Cancel";
-"keypicker.key.space" = "Space";
-"keypicker.key.home" = "Home";
-"keypicker.key.end" = "End";
-"keypicker.key.pageup" = "PgUp";
-"keypicker.key.pagedown" = "PgDn";
-"keypicker.key.numpad" = "Num";
-"keypicker.key.clear" = "Clear";
 "rules.pick.key" = "Select key visually";
 
 /* Launch at Login Error */

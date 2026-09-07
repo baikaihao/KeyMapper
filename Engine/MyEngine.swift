@@ -62,7 +62,7 @@ class MyEngine: ObservableObject {
     // 辅助功能权限轮询定时器，授权成功后自动停止
     private var authTimer: Timer?
     // 多映射状态：当同一按键映射到多个目标时，暂存匹配结果等待用户选择
-    private var multiMappingState: (keyCode: UInt16, flags: UInt64, matches: [MyMap])?
+    private var multiMappingState: (keyCode: UInt16, flags: UInt64, modifierCodes: Set<UInt16>, matches: [MyMap])?
     // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp 并恢复修饰键状态。
     private var activeSingleMappings: [UInt16: ActiveMapping] = [:]
     // 已吞掉的暂停热键 keyDown；用于屏蔽自动重复并成对吞掉 keyUp。
@@ -220,15 +220,12 @@ class MyEngine: ObservableObject {
     private struct ActiveMapping {
         let mapping: MyMap
         let targetModifiers: UInt64
+        let targetModifierCodes: Set<UInt16>
         let sourceModifiers: UInt64
+        let sourceModifierCodes: Set<UInt16>
     }
 
-    private static let modifierKeyCodes: [(key: ModifierKey, code: UInt16)] = [
-        (.shift, 56),
-        (.control, 59),
-        (.option, 58),
-        (.command, 55)
-    ]
+    private static let modifierKeyCodes: [UInt16] = [56, 60, 59, 62, 58, 61, 55, 54]
 
     private static func postEvent(_ event: CGEvent) {
         event.setIntegerValueField(.eventSourceUserData, value: eventTag)
@@ -252,33 +249,61 @@ class MyEngine: ObservableObject {
         }
     }
 
-    private static func postModifierTransition(from currentFlags: UInt64, to targetFlags: UInt64) {
-        var activeFlags = currentFlags & ModifierKey.allMask
-        let targetFlags = targetFlags & ModifierKey.allMask
-
-        for item in modifierKeyCodes.reversed() where (activeFlags & item.key.flagValue) != 0 && (targetFlags & item.key.flagValue) == 0 {
-            activeFlags &= ~item.key.flagValue
-            postModifierKey(code: item.code, flags: activeFlags, keyDown: false)
-        }
-
-        for item in modifierKeyCodes where (activeFlags & item.key.flagValue) == 0 && (targetFlags & item.key.flagValue) != 0 {
-            activeFlags |= item.key.flagValue
-            postModifierKey(code: item.code, flags: activeFlags, keyDown: true)
+    private static func flags(for modifierCodes: Set<UInt16>) -> UInt64 {
+        modifierCodes.reduce(0) { result, code in
+            guard let modifier = PhysicalModifierKey.modifier(for: code)?.modifier else { return result }
+            return result | modifier.flagValue
         }
     }
 
-    private static func postMappedKeyDownWithModifierBridge(mapping: MyMap, sourceModifiers: UInt64, isAutorepeat: Bool) -> UInt64 {
+    private static func targetModifierCodes(flags: UInt64, sides: ModifierSideSelection) -> Set<UInt16> {
+        var result = Set<UInt16>()
+        for modifier in ModifierKey.allCases where (flags & modifier.flagValue) != 0 {
+            let side = sides.side(for: modifier)
+            result.insert(PhysicalModifierKey.keyCode(for: modifier, side: side))
+        }
+        return result
+    }
+
+    private static func postModifierTransition(
+        from currentCodes: Set<UInt16>,
+        to targetCodes: Set<UInt16>
+    ) {
+        var activeCodes = currentCodes
+
+        for code in modifierKeyCodes.reversed() where activeCodes.contains(code) && !targetCodes.contains(code) {
+            activeCodes.remove(code)
+            postModifierKey(code: code, flags: flags(for: activeCodes), keyDown: false)
+        }
+
+        for code in modifierKeyCodes where !activeCodes.contains(code) && targetCodes.contains(code) {
+            activeCodes.insert(code)
+            postModifierKey(code: code, flags: flags(for: activeCodes), keyDown: true)
+        }
+    }
+
+    private static func postMappedKeyDownWithModifierBridge(
+        mapping: MyMap,
+        sourceModifierCodes: Set<UInt16>,
+        isAutorepeat: Bool
+    ) -> (flags: UInt64, codes: Set<UInt16>) {
         let targetModifiers = mapping.tFlags & ModifierKey.allMask
+        let targetCodes = targetModifierCodes(flags: targetModifiers, sides: mapping.tModifierSides)
         if !isAutorepeat {
-            postModifierTransition(from: sourceModifiers, to: targetModifiers)
+            postModifierTransition(from: sourceModifierCodes, to: targetCodes)
         }
         postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: true, isAutorepeat: isAutorepeat)
-        return targetModifiers
+        return (targetModifiers, targetCodes)
     }
 
-    private static func postMappedKeyUpWithModifierBridge(mapping: MyMap, targetModifiers: UInt64, restoreModifiers: UInt64) {
+    private static func postMappedKeyUpWithModifierBridge(
+        mapping: MyMap,
+        targetModifiers: UInt64,
+        targetModifierCodes: Set<UInt16>,
+        restoreModifierCodes: Set<UInt16>
+    ) {
         postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: false)
-        postModifierTransition(from: targetModifiers, to: restoreModifiers)
+        postModifierTransition(from: targetModifierCodes, to: restoreModifierCodes)
     }
 
     private static func postMappedKeyPair(code: UInt16, flags: UInt64) {
@@ -286,11 +311,16 @@ class MyEngine: ObservableObject {
         postMappedKey(code: code, flags: flags, keyDown: false)
     }
 
-    private static func postMappedKeyPairWithModifierBridge(mapping: MyMap, sourceModifiers: UInt64, restoreModifiers: UInt64) {
+    private static func postMappedKeyPairWithModifierBridge(
+        mapping: MyMap,
+        sourceModifierCodes: Set<UInt16>,
+        restoreModifierCodes: Set<UInt16>
+    ) {
         let targetModifiers = mapping.tFlags & ModifierKey.allMask
-        postModifierTransition(from: sourceModifiers, to: targetModifiers)
+        let targetCodes = targetModifierCodes(flags: targetModifiers, sides: mapping.tModifierSides)
+        postModifierTransition(from: sourceModifierCodes, to: targetCodes)
         postMappedKeyPair(code: mapping.tCode, flags: targetModifiers)
-        postModifierTransition(from: targetModifiers, to: restoreModifiers)
+        postModifierTransition(from: targetCodes, to: restoreModifierCodes)
     }
 
     private func shouldHandleMappedKeyUp(keyCode: UInt16) -> Bool {
@@ -329,7 +359,9 @@ class MyEngine: ObservableObject {
 
         tearDownEventTap()
 
-        let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
+        let mask = (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
+            | (1 << CGEventType.flagsChanged.rawValue)
         let callback: CGEventTapCallBack = { (_, type, event, _) -> Unmanaged<CGEvent>? in
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 MyEngine.shared.handleEventTapDisabled()
@@ -341,6 +373,15 @@ class MyEngine: ObservableObject {
 
             if event.getIntegerValueField(.eventSourceUserData) == MyEngine.eventTag {
                 return Unmanaged.passUnretained(event)
+            }
+
+            if type == .flagsChanged {
+                ModifierSideTracker.shared.updateFlagsChanged(keyCode: c, flags: f)
+                return Unmanaged.passUnretained(event)
+            }
+
+            if type == .keyDown || type == .keyUp {
+                ModifierSideTracker.shared.updateKeyEvent(keyCode: c, isDown: type == .keyDown)
             }
 
             if type == .keyUp && MyEngine.shared.shouldHandleMappedKeyUp(keyCode: c) {
@@ -499,7 +540,8 @@ class MyEngine: ObservableObject {
             Self.postMappedKeyUpWithModifierBridge(
                 mapping: activeMapping.mapping,
                 targetModifiers: activeMapping.targetModifiers,
-                restoreModifiers: activeMapping.sourceModifiers
+                targetModifierCodes: activeMapping.targetModifierCodes,
+                restoreModifierCodes: activeMapping.sourceModifierCodes
             )
         }
 
@@ -509,6 +551,7 @@ class MyEngine: ObservableObject {
         multiMappingState = nil
         isWheelShowing = false
         pauseHotkeyPressedKeyCode = nil
+        ModifierSideTracker.shared.reset()
     }
 
     private func handleKeyDown(keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
@@ -529,7 +572,12 @@ class MyEngine: ObservableObject {
                 isWheelShowing = false
             }
             let m = state.matches[0]
-            Self.postMappedKeyPairWithModifierBridge(mapping: m, sourceModifiers: state.flags, restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask)
+            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
+            Self.postMappedKeyPairWithModifierBridge(
+                mapping: m,
+                sourceModifierCodes: state.modifierCodes,
+                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
+            )
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -543,21 +591,34 @@ class MyEngine: ObservableObject {
             $0.isOn
                 && $0.fCode == keyCode
                 && ($0.fFlags & ModifierKey.allMask) == modifiers
+                && matchesModifierSides($0.fModifierSides, flags: modifiers)
                 && !isRuleBlacklisted($0, for: frontBundleId)
         }
 
         if matches.count > 1 {
-            multiMappingState = (keyCode, modifiers, matches)
+            multiMappingState = (
+                keyCode,
+                modifiers,
+                ModifierSideTracker.shared.physicalCodes(for: modifiers),
+                matches
+            )
             isWheelShowing = true
             let mouseLocation = NSEvent.mouseLocation
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
-            let targetModifiers = Self.postMappedKeyDownWithModifierBridge(mapping: m, sourceModifiers: modifiers, isAutorepeat: isAutorepeat)
+            let sourceCodes = ModifierSideTracker.shared.physicalCodes(for: modifiers)
+            let target = Self.postMappedKeyDownWithModifierBridge(
+                mapping: m,
+                sourceModifierCodes: sourceCodes,
+                isAutorepeat: isAutorepeat
+            )
             activeSingleMappings[keyCode] = ActiveMapping(
                 mapping: m,
-                targetModifiers: targetModifiers,
-                sourceModifiers: modifiers
+                targetModifiers: target.flags,
+                targetModifierCodes: target.codes,
+                sourceModifiers: modifiers,
+                sourceModifierCodes: sourceCodes
             )
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
@@ -572,10 +633,12 @@ class MyEngine: ObservableObject {
 
     private func handleKeyUp(keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if let activeMapping = activeSingleMappings.removeValue(forKey: keyCode) {
+            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
             Self.postMappedKeyUpWithModifierBridge(
                 mapping: activeMapping.mapping,
                 targetModifiers: activeMapping.targetModifiers,
-                restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
+                targetModifierCodes: activeMapping.targetModifierCodes,
+                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
             )
             return nil
         }
@@ -590,10 +653,11 @@ class MyEngine: ObservableObject {
                 mapping = state.matches[0]
             }
 
+            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
             Self.postMappedKeyPairWithModifierBridge(
                 mapping: mapping,
-                sourceModifiers: state.flags,
-                restoreModifiers: originalEvent.flags.rawValue & ModifierKey.allMask
+                sourceModifierCodes: state.modifierCodes,
+                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
             )
             if let idx = list.firstIndex(where: { $0.id == mapping.id }) {
                 DispatchQueue.main.async {
@@ -605,6 +669,19 @@ class MyEngine: ObservableObject {
         }
 
         return Unmanaged.passUnretained(originalEvent)
+    }
+
+    private func matchesModifierSides(_ required: ModifierSideSelection, flags: UInt64) -> Bool {
+        let held = ModifierSideTracker.shared.heldKeyCodes
+        for modifier in [ModifierKey.option, .command] where (flags & modifier.flagValue) != 0 {
+            let side = required.side(for: modifier)
+            guard side != .any else { continue }
+            let pair = PhysicalModifierKey.codes[modifier]!
+            let requiredCode = side == .left ? pair.left : pair.right
+            let otherCode = side == .left ? pair.right : pair.left
+            guard held.contains(requiredCode), !held.contains(otherCode) else { return false }
+        }
+        return true
     }
 
     private func isRuleBlacklisted(_ mapping: MyMap, for bundleId: String?) -> Bool {
@@ -632,8 +709,10 @@ class MyEngine: ObservableObject {
         let hasSameKeySignature: (MyMap, MyMap) -> Bool = { lhs, rhs in
             lhs.fCode == rhs.fCode
                 && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
+                && lhs.fModifierSides == rhs.fModifierSides
                 && lhs.tCode == rhs.tCode
                 && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
+                && lhs.tModifierSides == rhs.tModifierSides
         }
         var normalizedList = list
         var didChange = false

@@ -203,6 +203,10 @@
 /* Key Picker */
 "keypicker.title" = "按键选择器";
 "keypicker.modifiers" = "修饰键";
+"keypicker.side" = "左右侧选择";
+"keypicker.side.any" = "任意";
+"keypicker.side.left" = "左";
+"keypicker.side.right" = "右";
 "keypicker.add.modifier" = "添加修饰键";
 "keypicker.layer" = "层级";
 "keypicker.key" = "按键";
@@ -210,13 +214,6 @@
 "keypicker.no.selection" = "未选择按键";
 "keypicker.confirm" = "确认";
 "keypicker.cancel" = "取消";
-"keypicker.key.space" = "空格";
-"keypicker.key.home" = "行首";
-"keypicker.key.end" = "行尾";
-"keypicker.key.pageup" = "上页";
-"keypicker.key.pagedown" = "下页";
-"keypicker.key.numpad" = "数字";
-"keypicker.key.clear" = "清除";
 "rules.pick.key" = "可视化选择按键";
 
 /* Launch at Login Error */

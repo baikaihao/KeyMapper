@@ -183,18 +183,40 @@ extension MappingStore {
         let id: UUID
         let fCode: UInt16
         let fFlags: UInt64
+        let fModifierSides: ModifierSideSelection
         let tCode: UInt16
         let tFlags: UInt64
+        let tModifierSides: ModifierSideSelection
         let isOn: Bool
         let note: String
         let appBlacklist: [String]
+
+        private enum CodingKeys: String, CodingKey {
+            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            fCode = try container.decode(UInt16.self, forKey: .fCode)
+            fFlags = try container.decode(UInt64.self, forKey: .fFlags)
+            fModifierSides = try container.decodeIfPresent(ModifierSideSelection.self, forKey: .fModifierSides) ?? .any
+            tCode = try container.decode(UInt16.self, forKey: .tCode)
+            tFlags = try container.decode(UInt64.self, forKey: .tFlags)
+            tModifierSides = try container.decodeIfPresent(ModifierSideSelection.self, forKey: .tModifierSides) ?? .any
+            isOn = try container.decode(Bool.self, forKey: .isOn)
+            note = try container.decode(String.self, forKey: .note)
+            appBlacklist = try container.decode([String].self, forKey: .appBlacklist)
+        }
 
         init(_ mapping: MyMap) {
             id = mapping.id
             fCode = mapping.fCode
             fFlags = mapping.fFlags & ModifierKey.allMask
+            fModifierSides = mapping.fModifierSides
             tCode = mapping.tCode
             tFlags = mapping.tFlags & ModifierKey.allMask
+            tModifierSides = mapping.tModifierSides
             isOn = mapping.isOn
             note = mapping.note
             appBlacklist = mapping.appBlacklist
@@ -339,7 +361,9 @@ extension MappingStore {
             guard isValidKeyCode(record.fCode),
                   isValidKeyCode(record.tCode),
                   isValidFlags(record.fFlags),
-                  isValidFlags(record.tFlags) else {
+                  isValidFlags(record.tFlags),
+                  isValidModifierSides(record.fModifierSides, flags: record.fFlags),
+                  isValidModifierSides(record.tModifierSides, flags: record.tFlags) else {
                 throw ConfigurationError.invalidMappingValue(displayIndex)
             }
             guard record.note.utf8.count <= maximumNoteByteCount else {
@@ -358,6 +382,8 @@ extension MappingStore {
                     fFlags: record.fFlags,
                     tCode: record.tCode,
                     tFlags: record.tFlags,
+                    fModifierSides: record.fModifierSides,
+                    tModifierSides: record.tModifierSides,
                     isOn: record.isOn,
                     note: record.note,
                     appBlacklist: ruleBlacklist
@@ -445,6 +471,11 @@ extension MappingStore {
 
     private static func isValidFlags(_ flags: UInt64) -> Bool {
         (flags & ~ModifierKey.allMask) == 0
+    }
+
+    private static func isValidModifierSides(_ sides: ModifierSideSelection, flags: UInt64) -> Bool {
+        (sides.option == .any || (flags & ModifierKey.option.flagValue) != 0)
+            && (sides.command == .any || (flags & ModifierKey.command.flagValue) != 0)
     }
 
     private static func validatedBlacklist(
