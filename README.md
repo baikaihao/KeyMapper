@@ -192,9 +192,17 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 
 ---
 
-## 📄 License
+## License / 许可证
 
-MIT License - See [LICENSE](LICENSE) for details.
+Copyright (C) 2026 baikaihao.
+
+KeyMapper is licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). You may use, modify, and distribute it, including commercially, under the terms of this license. When distributing covered software, provide its Corresponding Source as required by the license. If you modify the software and your version supports remote network interaction, you must prominently offer those users access to the Corresponding Source of your version at no charge.
+
+This software is provided without any warranty. See [LICENSE](LICENSE) for the complete terms.
+
+KeyMapper 采用 **GNU Affero 通用公共许可证第 3 版（仅此版本）**（`AGPL-3.0-only`）。允许在遵守许可证的前提下使用、修改、分发及商业使用。分发受该许可证覆盖的软件时，须按许可证要求提供对应源码；如果修改版支持通过网络远程交互，须向这些用户显著提供免费获取该修改版对应源码的途径。
+
+本软件不提供任何担保。完整条款见 [LICENSE](LICENSE)。
 
 ## 📝 Changelog
 
