@@ -8,12 +8,24 @@ import AppKit
 @main
 struct KeyMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @ObservedObject private var updateService = UpdateService.shared
 
     var body: some Scene {
         Settings {
             EmptyView()
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button(NSLocalizedString(updateService.isChecking ? "update.checking" : "about.check.update", comment: "")) {
+                    appDelegate.checkForUpdates()
+                }
+                .disabled(updateService.isChecking)
+                if let release = updateService.availableRelease {
+                    Button(String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)) {
+                        updateService.openReleasePage(for: release)
+                    }
+                }
+            }
             // 移除 "New" 菜单项，KeyMapper 不需要新建文档功能
             CommandGroup(replacing: .newItem) { }
             CommandGroup(replacing: .appSettings) { }

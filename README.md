@@ -40,8 +40,8 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **🚫 App Blacklist**: Disable key mapping in specific applications (e.g., Terminal)
 - **🎭 Stealth Mode**: Hide Dock icon and enable "Launch at Login" for seamless background operation
 - **🔄 Import/Export**: Backup and restore your mapping rules with JSON files
-- **🔍 Check for Updates**: Built-in update checker via GitHub Releases
-- **🔒 Privacy First**: 100% open-source, no analytics, no network access
+- **🔍 Check for Updates**: Automatically checks GitHub after launch, at most once every 24 hours, with a switch in Settings > General (enabled by default). Only new versions trigger a notice; background checks never open the main window. You can also check manually from the app menu, menu bar icon menu, or About page and open the release page to download
+- **🔒 Privacy First**: 100% open-source, no analytics; network access is limited to GitHub update checks, which can be disabled in Settings
 
 ### 🎡 Radial Wheel
 
@@ -134,8 +134,8 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **🚫 应用黑名单**：在特定应用中禁用按键映射（如终端）
 - **🎭 静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求
 - **🔄 导入导出**：支持备份和恢复映射规则
-- **🔍 检查更新**：内置更新检查功能
-- **🔒 完全开源**：不包含任何统计或网络模块，纯净安全，保护输入隐私
+- **🔍 检查更新**：默认在启动后自动检查 GitHub，每 24 小时最多一次，可在「设置 → 通用设置」中关闭；仅发现新版本时提示，后台检查不会打开主窗口。也可从应用菜单、菜单栏图标菜单或「关于」页面手动检查并前往发布页下载
+- **🔒 完全开源**：不包含统计模块，网络连接仅用于 GitHub 更新检查，可在设置中关闭自动检查，保护输入隐私
 
 ### 🎡 轮转转盘
 

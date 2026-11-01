@@ -176,6 +176,16 @@
 "update.download" = "下载更新";
 "update.error.invalid.url" = "无效的 URL";
 "update.error.invalid.response" = "无效的响应";
+"update.checking" = "正在检查更新…";
+"settings.auto.update" = "自动检查更新";
+"settings.auto.update.desc" = "启动后在后台检查，每天最多一次；发现新版本时提示。";
+"update.download.version" = "下载新版本 %@";
+"update.none.title" = "暂无可用版本";
+"update.none.message" = "暂未找到可用的发布版本，您可以前往发布页面查看。";
+"update.view.releases" = "查看发布页面";
+"update.error.invalid.version" = "无法识别版本号，请前往发布页面查看最新版本。";
+"update.error.rate.limited" = "GitHub 暂时限制了更新检查请求，请稍后重试，或前往发布页面查看。";
+"update.error.http" = "更新服务器返回错误（HTTP %ld），请稍后重试，或前往发布页面查看。";
 
 /* Record Row */
 "waiting.for.input" = "等待输入...";

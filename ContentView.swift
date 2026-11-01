@@ -41,6 +41,7 @@ enum SidebarItem: String, CaseIterable {
 
 struct ContentView: View {
     @StateObject var engine = MyEngine.shared
+    @ObservedObject private var updateService = UpdateService.shared
     @State private var selectedTab: SidebarItem = .rules
 
     var body: some View {
@@ -50,6 +51,27 @@ struct ContentView: View {
             DetailView(selectedTab: selectedTab)
         }
         .navigationSplitViewStyle(.balanced)
+        .alert(updateService.result?.title ?? "", isPresented: Binding(
+            get: { updateService.result != nil },
+            set: { if !$0 { updateService.result = nil } }
+        ), presenting: updateService.result) { result in
+            switch result {
+            case .available(let release):
+                Button(NSLocalizedString("update.download", comment: "")) {
+                    updateService.openReleasePage(for: release)
+                }
+                Button(NSLocalizedString("cancel", comment: ""), role: .cancel) {}
+            case .failed, .noReleases:
+                Button(NSLocalizedString("update.view.releases", comment: "")) {
+                    updateService.openReleasePage()
+                }
+                Button(NSLocalizedString("ok", comment: ""), role: .cancel) {}
+            case .upToDate:
+                Button(NSLocalizedString("ok", comment: ""), role: .cancel) {}
+            }
+        } message: { result in
+            Text(result.message(currentVersion: updateService.currentVersion))
+        }
     }
 }
 

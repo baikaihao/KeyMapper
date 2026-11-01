@@ -7,13 +7,7 @@ import AppKit
 // 提供"检查更新"按钮（调用 UpdateService）、"查看许可证"按钮、GitHub 链接和 Issues 反馈入口。
 
 struct AboutView: View {
-    @StateObject var engine = MyEngine.shared
-    @StateObject var updateService = UpdateService.shared
-    @State private var showingUpdateAlert = false
-    @State private var updateAlertTitle = ""
-    @State private var updateAlertMessage = ""
-    // 是否检测到新版本
-    @State private var hasUpdate = false
+    @ObservedObject private var updateService = UpdateService.shared
     @Environment(\.colorScheme) var colorScheme
 
     // 根据当前色彩模式加载对应的应用图标
@@ -51,20 +45,27 @@ struct AboutView: View {
                     Text("Build \(updateService.buildNumber)")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary.opacity(0.7))
+                    if let release = updateService.availableRelease {
+                        Button(String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)) {
+                            updateService.openReleasePage(for: release)
+                        }
+                        .font(.system(size: 12))
+                        .buttonStyle(.link)
+                    }
                 }
             }
 
             // 操作按钮组
             VStack(spacing: 10) {
                 // 检查更新按钮：检查期间显示加载指示器
-                Button(action: checkForUpdates) {
+                Button(action: { Task { await updateService.checkForUpdates() } }) {
                     HStack {
                         if updateService.isChecking {
                             ProgressView()
                                 .scaleEffect(0.7)
                                 .frame(width: 16, height: 16)
                         }
-                        Text(NSLocalizedString("about.check.update", comment: ""))
+                        Text(NSLocalizedString(updateService.isChecking ? "update.checking" : "about.check.update", comment: ""))
                             .font(.system(size: 13, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
@@ -113,57 +114,6 @@ struct AboutView: View {
             .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // 更新检查结果弹窗
-        .alert(updateAlertTitle, isPresented: $showingUpdateAlert) {
-            if hasUpdate {
-                // 有新版本时提供下载按钮
-                Button(NSLocalizedString("update.download", comment: "")) {
-                    updateService.openReleasePage()
-                }
-                Button(NSLocalizedString("cancel", comment: ""), role: .cancel) {}
-            } else {
-                Button(NSLocalizedString("ok", comment: ""), role: .cancel) {}
-            }
-        } message: {
-            Text(updateAlertMessage)
-        }
-    }
-
-    // MARK: - 更新检查
-
-    // 调用 UpdateService 检查更新，根据结果显示不同弹窗
-    private func checkForUpdates() {
-        updateService.checkForUpdates { result in
-            switch result {
-            case .success(let release):
-                if let release = release {
-                    if updateService.isNewerVersion(release.tagName) {
-                        // 发现新版本
-                        hasUpdate = true
-                        updateAlertTitle = NSLocalizedString("update.available.title", comment: "")
-                        updateAlertMessage = String(format: NSLocalizedString("update.available.message", comment: ""), release.tagName, updateService.currentVersion)
-                    } else {
-                        // 已是最新版本
-                        hasUpdate = false
-                        updateAlertTitle = NSLocalizedString("update.latest.title", comment: "")
-                        updateAlertMessage = NSLocalizedString("update.latest.message", comment: "")
-                    }
-                } else {
-                    // 没有 Release
-                    hasUpdate = false
-                    updateAlertTitle = NSLocalizedString("update.latest.title", comment: "")
-                    updateAlertMessage = NSLocalizedString("update.latest.message", comment: "")
-                }
-                showingUpdateAlert = true
-
-            case .failure(let error):
-                // 检查失败
-                hasUpdate = false
-                updateAlertTitle = NSLocalizedString("update.error.title", comment: "")
-                updateAlertMessage = error.localizedDescription
-                showingUpdateAlert = true
-            }
-        }
     }
 
     // MARK: - 外部链接

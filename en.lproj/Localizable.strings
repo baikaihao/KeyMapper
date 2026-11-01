@@ -176,6 +176,16 @@
 "update.download" = "Download Update";
 "update.error.invalid.url" = "Invalid URL";
 "update.error.invalid.response" = "Invalid response";
+"update.checking" = "Checking for Updates…";
+"settings.auto.update" = "Automatically Check for Updates";
+"settings.auto.update.desc" = "Check in the background after launch, at most once a day. Notify when a new version is available.";
+"update.download.version" = "Download Version %@";
+"update.none.title" = "No Releases Available";
+"update.none.message" = "No published release was found. You can check the releases page for more information.";
+"update.view.releases" = "View Releases";
+"update.error.invalid.version" = "The version number could not be recognized. Check the releases page for the latest version.";
+"update.error.rate.limited" = "GitHub has temporarily limited update checks. Try again later or visit the releases page.";
+"update.error.http" = "The update server returned an error (HTTP %ld). Try again later or visit the releases page.";
 
 /* Record Row */
 "waiting.for.input" = "Waiting for input...";

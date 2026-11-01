@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 // MARK: - SettingsView
 // 设置页面，包含四个设置区块：
-// 1. 通用设置——开机自启（SMAppService）、隐藏 Dock 图标
+// 1. 通用设置——开机自启（SMAppService）、隐藏 Dock 图标、自动检查更新
 // 2. 映射设置——暂停热键录制/重置、辅助功能权限检查
 // 3. 数据管理——导出/导入规则配置（JSON 格式）
 // 4. 自动备份——启用/间隔/数量上限/路径/立即备份
@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage("setting_hide_dock") private var hideDock = false
     @StateObject var engine = MyEngine.shared
     @StateObject var backupManager = BackupManager.shared
+    @ObservedObject private var updateService = UpdateService.shared
     // 是否正在录制暂停热键
     @State private var isRecHotkey = false
     // 临时存储录制的暂停热键
@@ -58,6 +59,20 @@ struct SettingsView: View {
                                 .onChange(of: hideDock) { newValue in
                                     toggleDockIcon(hide: newValue)
                                 }
+                        }
+
+                        Divider()
+
+                        SettingsRow(
+                            title: NSLocalizedString("settings.auto.update", comment: ""),
+                            description: NSLocalizedString("settings.auto.update.desc", comment: "")
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: { updateService.automaticallyChecksForUpdates },
+                                set: { updateService.setAutomaticChecksEnabled($0) }
+                            ))
+                            .toggleStyle(.switch)
+                            .accessibilityLabel(NSLocalizedString("settings.auto.update", comment: ""))
                         }
                     }
                     .background(Color(NSColor.controlBackgroundColor))

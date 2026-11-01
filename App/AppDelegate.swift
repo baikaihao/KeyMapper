@@ -12,12 +12,14 @@ import ServiceManagement
 // 4. 监听引擎激活状态，按启动策略调度主窗口显示
 // 5. 支持 Dock 图标隐藏模式（.accessory 策略）
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate, NSMenuItemValidation {
 
     // 系统状态栏图标项
     private var statusItem: NSStatusItem?
     // 菜单栏中的"暂停/恢复引擎"菜单项引用，用于动态更新标题
     private var engineMenuItem: NSMenuItem?
+    private var updateMenuItem: NSMenuItem?
+    private var availableUpdateMenuItem: NSMenuItem?
     // 应用主窗口
     private var mainWindow: NSWindow?
     // Combine 订阅集合，用于管理 KVO 订阅的生命周期
@@ -55,6 +57,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         createMainWindow()
 
         setupEngineObserver()
+        setupUpdateObserver()
+        UpdateService.shared.startAutomaticChecks()
     }
 
     // 点击 Dock 图标或重新打开应用时，显示主窗口而非创建新窗口
@@ -67,7 +71,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         cancelKeyRecording()
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        presentAutomaticUpdateIfNeeded()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        UpdateService.shared.stopAutomaticChecks()
         MyEngine.shared.stop()
     }
 
@@ -120,6 +129,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         engineItem.target = self
         menu.addItem(engineItem)
         engineMenuItem = engineItem
+
+        menu.addItem(NSMenuItem.separator())
+
+        let updateItem = NSMenuItem(
+            title: NSLocalizedString("about.check.update", comment: ""),
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        menu.addItem(updateItem)
+        updateMenuItem = updateItem
+
+        let availableItem = NSMenuItem(title: "", action: #selector(openAvailableUpdate), keyEquivalent: "")
+        availableItem.target = self
+        availableItem.isHidden = true
+        menu.addItem(availableItem)
+        availableUpdateMenuItem = availableItem
 
         menu.addItem(NSMenuItem.separator())
 
@@ -235,6 +261,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     // MARK: - NSWindowDelegate
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        presentAutomaticUpdateIfNeeded()
+    }
+
+    private func setupUpdateObserver() {
+        UpdateService.shared.$availableRelease
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.presentAutomaticUpdateIfNeeded() }
+            .store(in: &cancellables)
+    }
+
+    private func presentAutomaticUpdateIfNeeded() {
+        guard NSApp.isActive, mainWindow?.isVisible == true,
+              mainWindow?.attachedSheet == nil, !MyEngine.shared.isRecording else { return }
+        UpdateService.shared.presentAutomaticUpdateIfNeeded()
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         cancelKeyRecording()
     }
@@ -264,8 +307,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         MyEngine.shared.toggle()
     }
 
+    @objc func checkForUpdates() {
+        guard !UpdateService.shared.isChecking else { return }
+        showMainWindow()
+        Task { await UpdateService.shared.checkForUpdates() }
+    }
+
+    @objc func openAvailableUpdate() {
+        guard let release = UpdateService.shared.availableRelease else { return }
+        UpdateService.shared.openReleasePage(for: release)
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdates) {
+            return !UpdateService.shared.isChecking
+        }
+        return true
+    }
+
     // 菜单即将显示时，动态更新"暂停/恢复引擎"菜单项的标题和热键提示
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if let release = UpdateService.shared.availableRelease {
+            availableUpdateMenuItem?.title = String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)
+            availableUpdateMenuItem?.isHidden = false
+        } else {
+            availableUpdateMenuItem?.isHidden = true
+        }
+        updateMenuItem?.title = NSLocalizedString(
+            UpdateService.shared.isChecking ? "update.checking" : "about.check.update", comment: ""
+        )
         if let item = engineMenuItem {
             var title = MyEngine.shared.isPaused
                 ? NSLocalizedString("resume.engine", comment: "")
