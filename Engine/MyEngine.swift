@@ -12,13 +12,13 @@ extension Notification.Name {
 // 这是整个 KeyMapper 最关键的组件，负责在系统级别拦截键盘事件并进行映射。
 //
 // 工作流程：
-// 1. 使用 CGEvent.tapCreate 在系统级别创建键盘事件监听（keyDown/keyUp）
+// 1. 使用 CGEvent.tapCreate 监听键盘、修饰键变化及携带修饰键的鼠标事件
 // 2. 在回调中按优先级依次检查：自身事件 → 录制模式 → 自身应用 → 暂停热键 → 暂停状态 → 规则级黑名单
 // 3. 匹配映射规则后，构造新的 CGEvent 发送映射后的按键事件
 // 4. 同一按键映射到多个目标时，弹出径向选择轮盘（RadialWheel）
 //
 // 数据持久化：
-// - 映射规则、全局默认黑名单、暂停热键均通过 UserDefaults + JSON 编码持久化
+// - 快捷键/修饰键规则、全局黑名单、暂停热键通过 UserDefaults + JSON 编码持久化
 
 class MyEngine: ObservableObject {
     static let shared = MyEngine()
@@ -26,26 +26,50 @@ class MyEngine: ObservableObject {
     // MARK: - 发布属性（UI 绑定）
 
     private var isApplyingConfiguration = false
+    private let persistsConfiguration: Bool
+    private let eventPoster: ((CGEvent, CGEventTapProxy?) -> Void)?
+    private let frontmostBundleID: () -> String?
     // 映射规则列表，变更时自动持久化
     @Published var list: [MyMap] = [] {
         didSet {
-            if !isApplyingConfiguration { MappingStore.shared.saveList(list) }
+            if !isApplyingConfiguration {
+                if persistsConfiguration { MappingStore.shared.saveList(list) }
+                cancelModifierSourceMappings()
+                refreshModifierOutput()
+            }
         }
     }
     @Published var isActive: Bool = false
-    @Published var isPaused: Bool = false
+    @Published var modifierMappings: [ModifierMapping] = [] {
+        didSet {
+            if !isApplyingConfiguration {
+                if persistsConfiguration { MappingStore.shared.saveModifierMappings(modifierMappings) }
+                cancelModifierSourceMappings()
+                refreshModifierOutput()
+            }
+        }
+    }
+    @Published var isPaused: Bool = false {
+        didSet { if isPaused != oldValue { cancelModifierSourceMappings(); refreshModifierOutput() } }
+    }
     @Published var pauseHotkey: (keyCode: UInt16, flags: UInt64)? = nil {
         didSet {
-            if !isApplyingConfiguration { MappingStore.shared.savePauseHotkey(pauseHotkey) }
+            if !isApplyingConfiguration && persistsConfiguration { MappingStore.shared.savePauseHotkey(pauseHotkey) }
         }
     }
     @Published var blacklist: [String] = [] {
         didSet {
-            if !isApplyingConfiguration { MappingStore.shared.saveBlacklist(blacklist) }
+            if !isApplyingConfiguration {
+                if persistsConfiguration { MappingStore.shared.saveBlacklist(blacklist) }
+                cancelModifierSourceMappings()
+                refreshModifierOutput()
+            }
         }
     }
     // 是否处于按键录制模式（录制期间不拦截按键，让事件正常传递）
-    @Published var isRecording: Bool = false
+    @Published var isRecording: Bool = false {
+        didSet { if isRecording != oldValue { cancelModifierSourceMappings(); refreshModifierOutput() } }
+    }
 
     // MARK: - 私有属性
 
@@ -62,9 +86,15 @@ class MyEngine: ObservableObject {
     // 辅助功能权限轮询定时器，授权成功后自动停止
     private var authTimer: Timer?
     // 多映射状态：当同一按键映射到多个目标时，暂存匹配结果等待用户选择
-    private var multiMappingState: (keyCode: UInt16, flags: UInt64, modifierCodes: Set<UInt16>, matches: [MyMap])?
+    private var multiMappingState: (keyCode: UInt16, matches: [MyMap])?
     // 单映射按键状态：记录已吞掉的源 keyDown，确保源 keyUp 时补发目标 keyUp 并恢复修饰键状态。
     private var activeSingleMappings: [UInt16: ActiveMapping] = [:]
+    private var modifierOutput = ModifierRemappingState()
+    private var lastPhysicalFlags: UInt64 = 0
+    private var modifierSessionSuspended = false
+    private var modifierActionBundleID: String?
+    private var modifierObservers = Set<AnyCancellable>()
+    private var suppressedKeyUps = Set<UInt16>()
     // 已吞掉的暂停热键 keyDown；用于屏蔽自动重复并成对吞掉 keyUp。
     private var pauseHotkeyPressedKeyCode: UInt16?
     // 径向选择轮盘是否正在显示
@@ -74,11 +104,21 @@ class MyEngine: ObservableObject {
 
     // MARK: - 初始化
 
-    init() {
+    init(
+        startMonitoring: Bool = true,
+        eventPoster: ((CGEvent, CGEventTapProxy?) -> Void)? = nil,
+        frontmostBundleID: @escaping () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+    ) {
+        persistsConfiguration = startMonitoring
+        self.eventPoster = eventPoster
+        self.frontmostBundleID = frontmostBundleID
+        guard startMonitoring else { return }
         list = MappingStore.shared.loadList()
+        modifierMappings = MappingStore.shared.loadModifierMappings()
         pauseHotkey = MappingStore.shared.loadPauseHotkey()
         blacklist = MappingStore.shared.loadBlacklist()
         separateGlobalBlacklistFromRulesIfNeeded()
+        observeModifierContext()
         startEventTapHealthMonitoring()
         checkAccessibility()
     }
@@ -207,8 +247,13 @@ class MyEngine: ObservableObject {
         try MappingStore.shared.persistValidatedConfiguration(configuration)
 
         isApplyingConfiguration = true
-        defer { isApplyingConfiguration = false }
+        defer {
+            isApplyingConfiguration = false
+            cancelModifierSourceMappings()
+            refreshModifierOutput()
+        }
         list = configuration.mappings
+        modifierMappings = configuration.modifierMappings
         blacklist = configuration.blacklist
         pauseHotkey = configuration.pauseHotkey
     }
@@ -219,108 +264,264 @@ class MyEngine: ObservableObject {
 
     private struct ActiveMapping {
         let mapping: MyMap
-        let targetModifiers: UInt64
         let targetModifierCodes: Set<UInt16>
-        let sourceModifiers: UInt64
         let sourceModifierCodes: Set<UInt16>
     }
 
-    private static let modifierKeyCodes: [UInt16] = [56, 60, 59, 62, 58, 61, 55, 54]
-
-    private static func postEvent(_ event: CGEvent) {
-        event.setIntegerValueField(.eventSourceUserData, value: eventTag)
-        event.post(tap: .cghidEventTap)
-    }
-
-    private static func postMappedKey(code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false) {
-        let source = CGEventSource(stateID: .hidSystemState)
-        if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
-            e.flags = CGEventFlags(rawValue: flags)
-            e.setIntegerValueField(.keyboardEventAutorepeat, value: isAutorepeat ? 1 : 0)
-            postEvent(e)
+    private func postEvent(_ event: CGEvent, proxy: CGEventTapProxy? = nil) {
+        event.setIntegerValueField(.eventSourceUserData, value: Self.eventTag)
+        if let eventPoster {
+            eventPoster(event, proxy)
+        } else if let proxy {
+            // 在当前回调返回的事件之前发送，避免后续字母/鼠标事件抢在修饰键前面。
+            event.tapPostEvent(proxy)
+        } else {
+            event.post(tap: .cgSessionEventTap)
         }
     }
 
-    private static func postModifierKey(code: UInt16, flags: UInt64, keyDown: Bool) {
-        let source = CGEventSource(stateID: .hidSystemState)
-        if let e = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
-            e.flags = CGEventFlags(rawValue: flags)
-            postEvent(e)
+    private func postMappedKey(code: UInt16, flags: UInt64, keyDown: Bool, isAutorepeat: Bool = false, proxy: CGEventTapProxy? = nil) {
+        let source = CGEventSource(stateID: .privateState)
+        if let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: keyDown) {
+            event.flags = CGEventFlags(rawValue: flags)
+            event.setIntegerValueField(.keyboardEventAutorepeat, value: isAutorepeat ? 1 : 0)
+            postEvent(event, proxy: proxy)
         }
     }
 
-    private static func flags(for modifierCodes: Set<UInt16>) -> UInt64 {
-        modifierCodes.reduce(0) { result, code in
-            guard let modifier = PhysicalModifierKey.modifier(for: code)?.modifier else { return result }
-            return result | modifier.flagValue
+    private var outputFlags: UInt64 {
+        ModifierRemappingState.flags(for: modifierOutput.outputCodes, preserving: lastPhysicalFlags)
+    }
+
+    private var mappedKeyFlags: UInt64 {
+        // 目标快捷键使用明确指定的修饰键，不能继承源方向键/Fn 键的专用标志。
+        ModifierRemappingState.flags(for: modifierOutput.outputCodes, preserving: 0)
+    }
+
+    private var eligibleModifierRules: [MyMap] {
+        let bundleID = frontmostBundleID()
+        guard !isPaused, !isRecording, !modifierSessionSuspended,
+              bundleID == nil || bundleID != myBundleId else { return [] }
+        return (list + modifierMappings.map(\.rule)).filter {
+            $0.isOn && $0.sourceModifier != nil && !isRuleBlacklisted($0, for: bundleID)
         }
     }
 
-    private static func targetModifierCodes(flags: UInt64, sides: ModifierSideSelection) -> Set<UInt16> {
-        var result = Set<UInt16>()
-        for modifier in ModifierKey.allCases where (flags & modifier.flagValue) != 0 {
-            let side = sides.side(for: modifier)
-            result.insert(PhysicalModifierKey.keyCode(for: modifier, side: side))
+    private func mappedModifierCodes(_ physicalCodes: Set<UInt16>) -> Set<UInt16> {
+        ModifierRemappingState.mappedCodes(
+            physicalCodes, rules: ModifierRemappingState.continuousRules(from: eligibleModifierRules),
+            bundleID: frontmostBundleID(), enabled: true
+        )
+    }
+
+    private var desiredModifierCodes: Set<UInt16> {
+        guard !modifierSessionSuspended else { return [] }
+        // 已命中的快捷键优先，输出目标修饰键；物理键状态始终单独保存。
+        var base = mappedModifierCodes(ModifierSideTracker.shared.heldKeyCodes)
+        if let pending = multiMappingState,
+           let modifier = PhysicalModifierKey.modifier(for: pending.keyCode)?.modifier,
+           let pair = PhysicalModifierKey.codes[modifier] {
+            base.subtract(mappedModifierCodes([pair.left, pair.right]))
         }
-        return result
+        return ModifierRemappingState.applyingShortcuts(
+            to: base,
+            overrides: activeSingleMappings.values.map {
+                (source: mappedModifierCodes($0.sourceModifierCodes), target: $0.targetModifierCodes)
+            }
+        )
     }
 
-    private static func postModifierTransition(
-        from currentCodes: Set<UInt16>,
-        to targetCodes: Set<UInt16>
-    ) {
-        var activeCodes = currentCodes
-
-        for code in modifierKeyCodes.reversed() where activeCodes.contains(code) && !targetCodes.contains(code) {
-            activeCodes.remove(code)
-            postModifierKey(code: code, flags: flags(for: activeCodes), keyDown: false)
-        }
-
-        for code in modifierKeyCodes where !activeCodes.contains(code) && targetCodes.contains(code) {
-            activeCodes.insert(code)
-            postModifierKey(code: code, flags: flags(for: activeCodes), keyDown: true)
+    private func postModifierChanges(_ changes: [ModifierRemappingState.Change], proxy: CGEventTapProxy? = nil) {
+        for change in changes {
+            let source = CGEventSource(stateID: .privateState)
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: change.keyCode, keyDown: change.isDown) else { continue }
+            event.type = .flagsChanged
+            event.flags = CGEventFlags(rawValue: change.flags)
+            postEvent(event, proxy: proxy)
         }
     }
 
-    private static func postMappedKeyDownWithModifierBridge(
-        mapping: MyMap,
-        sourceModifierCodes: Set<UInt16>,
-        isAutorepeat: Bool
-    ) -> (flags: UInt64, codes: Set<UInt16>) {
-        let targetModifiers = mapping.tFlags & ModifierKey.allMask
-        let targetCodes = targetModifierCodes(flags: targetModifiers, sides: mapping.tModifierSides)
-        if !isAutorepeat {
-            postModifierTransition(from: sourceModifierCodes, to: targetCodes)
+    private func transitionModifiers(to codes: Set<UInt16>, proxy: CGEventTapProxy? = nil) {
+        postModifierChanges(modifierOutput.transition(to: codes, preserving: lastPhysicalFlags), proxy: proxy)
+    }
+
+    private func refreshModifierOutput(proxy: CGEventTapProxy? = nil) {
+        guard tap != nil || eventPoster != nil, !isApplyingConfiguration else { return }
+        transitionModifiers(to: desiredModifierCodes, proxy: proxy)
+    }
+
+    private func postMappedKeyPairWithModifierBridge(mapping: MyMap, proxy: CGEventTapProxy?) {
+        var codes = mapping.outputModifierCodes
+        for active in activeSingleMappings.values { codes.formUnion(active.targetModifierCodes) }
+        transitionModifiers(to: codes, proxy: proxy)
+        if mapping.targetModifier == nil {
+            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
+            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
         }
-        postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: true, isAutorepeat: isAutorepeat)
-        return (targetModifiers, targetCodes)
+        refreshModifierOutput(proxy: proxy)
     }
 
-    private static func postMappedKeyUpWithModifierBridge(
-        mapping: MyMap,
-        targetModifiers: UInt64,
-        targetModifierCodes: Set<UInt16>,
-        restoreModifierCodes: Set<UInt16>
-    ) {
-        postMappedKey(code: mapping.tCode, flags: targetModifiers, keyDown: false)
-        postModifierTransition(from: targetModifierCodes, to: restoreModifierCodes)
+    private func cancelModifierSourceMappings(proxy: CGEventTapProxy? = nil) {
+        for (key, active) in Array(activeSingleMappings) where active.mapping.sourceModifier != nil {
+            if active.mapping.targetModifier == nil {
+                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            }
+            activeSingleMappings.removeValue(forKey: key)
+        }
+        if let pending = multiMappingState, PhysicalModifierKey.modifier(for: pending.keyCode) != nil {
+            RadialWheelManager.shared.hide()
+            multiMappingState = nil
+            isWheelShowing = false
+        }
     }
 
-    private static func postMappedKeyPair(code: UInt16, flags: UInt64) {
-        postMappedKey(code: code, flags: flags, keyDown: true)
-        postMappedKey(code: code, flags: flags, keyDown: false)
+    private func updateModifierActionContext(proxy: CGEventTapProxy? = nil) {
+        let bundleID = frontmostBundleID()
+        guard bundleID != modifierActionBundleID else { return }
+        cancelModifierSourceMappings(proxy: proxy)
+        modifierActionBundleID = bundleID
     }
 
-    private static func postMappedKeyPairWithModifierBridge(
-        mapping: MyMap,
-        sourceModifierCodes: Set<UInt16>,
-        restoreModifierCodes: Set<UInt16>
-    ) {
-        let targetModifiers = mapping.tFlags & ModifierKey.allMask
-        let targetCodes = targetModifierCodes(flags: targetModifiers, sides: mapping.tModifierSides)
-        postModifierTransition(from: sourceModifierCodes, to: targetCodes)
-        postMappedKeyPair(code: mapping.tCode, flags: targetModifiers)
-        postModifierTransition(from: targetCodes, to: restoreModifierCodes)
+    private func handleModifierSource(proxy: CGEventTapProxy?, keyCode: UInt16, previouslyHeld: Set<UInt16>, event: CGEvent) {
+        guard let modifier = PhysicalModifierKey.modifier(for: keyCode)?.modifier,
+              let pair = PhysicalModifierKey.codes[modifier] else { return }
+        let sourceCodes: Set<UInt16> = [pair.left, pair.right]
+        let wasHeld = !previouslyHeld.isDisjoint(with: sourceCodes)
+        let isHeld = !ModifierSideTracker.shared.heldKeyCodes.isDisjoint(with: sourceCodes)
+        if activeSingleMappings[pair.left]?.mapping.sourceModifier != nil || multiMappingState?.keyCode == pair.left {
+            if !isHeld { _ = handleKeyUp(proxy: proxy, keyCode: pair.left, originalEvent: event) }
+            return
+        }
+        guard !wasHeld, isHeld, multiMappingState == nil else { return }
+        let matches = eligibleModifierRules.filter { $0.sourceModifier == modifier }
+        if matches.count > 1 {
+            multiMappingState = (pair.left, matches)
+            isWheelShowing = true
+            RadialWheelManager.shared.show(mappings: matches, at: NSEvent.mouseLocation)
+            refreshModifierOutput(proxy: proxy)
+        } else if let mapping = matches.first, mapping.targetModifier == nil {
+            // 修饰键 → 普通键/组合键与其他映射一样成对发送，两个物理侧别共享按住状态。
+            activeSingleMappings[pair.left] = ActiveMapping(
+                mapping: mapping, targetModifierCodes: mapping.outputModifierCodes,
+                sourceModifierCodes: sourceCodes
+            )
+            refreshModifierOutput(proxy: proxy)
+            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
+            if let index = list.firstIndex(where: { $0.id == mapping.id }) {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": index])
+                }
+            }
+        }
+    }
+
+    private func observeModifierContext() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateModifierActionContext()
+                self?.refreshModifierOutput()
+            }
+            .store(in: &modifierObservers)
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+            center.publisher(for: name).receive(on: RunLoop.main).sink { [weak self] _ in
+                guard let self else { return }
+                self.modifierSessionSuspended = true
+                self.resetInFlightKeyState(restorePhysical: false)
+            }.store(in: &modifierObservers)
+        }
+        for name in [NSWorkspace.didWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
+            center.publisher(for: name).receive(on: RunLoop.main).sink { [weak self] _ in
+                guard let self else { return }
+                self.modifierSessionSuspended = false
+                ModifierSideTracker.shared.synchronizeWithKeyboard()
+                self.refreshModifierOutput()
+            }.store(in: &modifierObservers)
+        }
+    }
+
+    // 退出前恢复物理修饰键，避免遗留由本程序按下的逻辑键。
+    func stop() {
+        eventTapHealthTimer?.invalidate()
+        retryTimer?.invalidate()
+        authTimer?.invalidate()
+        tearDownEventTap()
+    }
+
+    func handleEvent(proxy: CGEventTapProxy?, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            handleEventTapDisabled()
+            return Unmanaged.passUnretained(event)
+        }
+        if event.getIntegerValueField(.eventSourceUserData) == Self.eventTag {
+            return Unmanaged.passUnretained(event)
+        }
+
+        updateModifierActionContext(proxy: proxy)
+        let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        let physicalFlags = event.flags.rawValue
+        lastPhysicalFlags = physicalFlags
+
+        if type == .flagsChanged {
+            let previouslyHeld = ModifierSideTracker.shared.heldKeyCodes
+            ModifierSideTracker.shared.updateFlagsChanged(keyCode: code, flags: physicalFlags)
+            handleModifierSource(proxy: proxy, keyCode: code, previouslyHeld: previouslyHeld, event: event)
+            let changes = modifierOutput.transition(to: desiredModifierCodes, preserving: physicalFlags)
+            if PhysicalModifierKey.modifier(for: code) != nil {
+                if changes.count == 1, changes[0].keyCode == code {
+                    event.flags = CGEventFlags(rawValue: outputFlags)
+                    return Unmanaged.passUnretained(event)
+                }
+                postModifierChanges(changes, proxy: proxy)
+                return nil
+            }
+            // Caps Lock / Fn 保持原事件，只同步其中携带的标准修饰键状态。
+            postModifierChanges(changes, proxy: proxy)
+            event.flags = CGEventFlags(rawValue: outputFlags)
+            return Unmanaged.passUnretained(event)
+        }
+
+        // 安全输入或 Tap 暂停期间可能漏掉 flagsChanged；从物理状态恢复。
+        if (ModifierRemappingState.flags(for: ModifierSideTracker.shared.heldKeyCodes, preserving: 0) & ModifierKey.allMask)
+            != (physicalFlags & ModifierKey.allMask) {
+            ModifierSideTracker.shared.synchronizeWithKeyboard()
+        }
+        refreshModifierOutput(proxy: proxy)
+        event.flags = CGEventFlags(rawValue: outputFlags)
+        guard type == .keyDown || type == .keyUp else { return Unmanaged.passUnretained(event) }
+
+        if type == .keyUp, suppressedKeyUps.remove(code) != nil { return nil }
+        if type == .keyDown, suppressedKeyUps.contains(code) {
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 1 { return nil }
+            suppressedKeyUps.remove(code)
+        }
+        if type == .keyUp && shouldHandleMappedKeyUp(keyCode: code) {
+            return handleKeyUp(proxy: proxy, keyCode: code, originalEvent: event)
+        }
+        if pauseHotkeyPressedKeyCode == code {
+            if type == .keyUp { pauseHotkeyPressedKeyCode = nil }
+            return nil
+        }
+        if isRecording { return Unmanaged.passUnretained(event) }
+
+        // 暂停热键及快捷键规则始终匹配物理输入，修饰键映射不会改变现有规则含义。
+        if let hotkey = pauseHotkey, type == .keyDown, code == hotkey.keyCode,
+           (physicalFlags & ModifierKey.allMask) == (hotkey.flags & ModifierKey.allMask) {
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                pauseHotkeyPressedKeyCode = code
+                DispatchQueue.main.async { MyEngine.shared.toggle() }
+            }
+            return nil
+        }
+        if isPaused || modifierSessionSuspended || frontmostBundleID() == myBundleId {
+            return Unmanaged.passUnretained(event)
+        }
+        if type == .keyDown {
+            return handleKeyDown(proxy: proxy, keyCode: code, modifiers: physicalFlags & ModifierKey.allMask,
+                isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1, originalEvent: event)
+        }
+        return handleKeyUp(proxy: proxy, keyCode: code, originalEvent: event)
     }
 
     private func shouldHandleMappedKeyUp(keyCode: UInt16) -> Bool {
@@ -353,86 +554,22 @@ class MyEngine: ObservableObject {
             CGEvent.tapEnable(tap: tap, enable: true)
             updateEventTapActiveState()
             if isActive {
+                ModifierSideTracker.shared.synchronizeWithKeyboard()
+                refreshModifierOutput()
                 return
             }
         }
 
         tearDownEventTap()
 
-        let mask = (1 << CGEventType.keyDown.rawValue)
-            | (1 << CGEventType.keyUp.rawValue)
-            | (1 << CGEventType.flagsChanged.rawValue)
-        let callback: CGEventTapCallBack = { (_, type, event, _) -> Unmanaged<CGEvent>? in
-            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                MyEngine.shared.handleEventTapDisabled()
-                return Unmanaged.passUnretained(event)
-            }
-
-            let c = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-            let f = event.flags.rawValue
-
-            if event.getIntegerValueField(.eventSourceUserData) == MyEngine.eventTag {
-                return Unmanaged.passUnretained(event)
-            }
-
-            if type == .flagsChanged {
-                ModifierSideTracker.shared.updateFlagsChanged(keyCode: c, flags: f)
-                return Unmanaged.passUnretained(event)
-            }
-
-            if type == .keyDown || type == .keyUp {
-                ModifierSideTracker.shared.updateKeyEvent(keyCode: c, isDown: type == .keyDown)
-            }
-
-            if type == .keyUp && MyEngine.shared.shouldHandleMappedKeyUp(keyCode: c) {
-                return MyEngine.shared.handleKeyUp(keyCode: c, originalEvent: event)
-            }
-
-            if MyEngine.shared.pauseHotkeyPressedKeyCode == c {
-                if type == .keyUp {
-                    MyEngine.shared.pauseHotkeyPressedKeyCode = nil
-                }
-                return nil
-            }
-
-            if MyEngine.shared.isRecording {
-                return Unmanaged.passUnretained(event)
-            }
-
-            if let hk = MyEngine.shared.pauseHotkey,
-               type == .keyDown,
-               c == hk.keyCode,
-               (f & ModifierKey.allMask) == (hk.flags & ModifierKey.allMask) {
-                if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
-                    MyEngine.shared.pauseHotkeyPressedKeyCode = c
-                    DispatchQueue.main.async {
-                        MyEngine.shared.toggle()
-                    }
-                }
-                return nil
-            }
-
-            if let frontApp = NSWorkspace.shared.frontmostApplication,
-               let bundleId = frontApp.bundleIdentifier,
-               bundleId == MyEngine.shared.myBundleId {
-                return Unmanaged.passUnretained(event)
-            }
-
-            if MyEngine.shared.isPaused {
-                return Unmanaged.passUnretained(event)
-            }
-
-            let currentModifiers = f & ModifierKey.allMask
-
-            if type == .keyDown {
-                return MyEngine.shared.handleKeyDown(keyCode: c, modifiers: currentModifiers, isAutorepeat: event.getIntegerValueField(.keyboardEventAutorepeat) == 1, originalEvent: event)
-            }
-
-            if type == .keyUp {
-                return MyEngine.shared.handleKeyUp(keyCode: c, originalEvent: event)
-            }
-
-            return Unmanaged.passUnretained(event)
+        let eventTypes: [CGEventType] = [
+            .keyDown, .keyUp, .flagsChanged, .leftMouseDown, .leftMouseUp,
+            .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp,
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel
+        ]
+        let mask = eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+        let callback: CGEventTapCallBack = { (proxy, type, event, _) in
+            MyEngine.shared.handleEvent(proxy: proxy, type: type, event: event)
         }
 
         guard let newTap = CGEvent.tapCreate(
@@ -449,6 +586,8 @@ class MyEngine: ObservableObject {
         }
 
         tap = newTap
+        ModifierSideTracker.shared.synchronizeWithKeyboard()
+        modifierOutput.synchronize(to: ModifierSideTracker.shared.heldKeyCodes)
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, newTap, 0) else {
             tearDownEventTap()
             scheduleEventTapRetry()
@@ -459,6 +598,7 @@ class MyEngine: ObservableObject {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: newTap, enable: true)
         updateEventTapActiveState()
+        refreshModifierOutput()
 
         if !isActive {
             tearDownEventTap()
@@ -483,6 +623,8 @@ class MyEngine: ObservableObject {
             CGEvent.tapEnable(tap: tap, enable: true)
             updateEventTapActiveState()
             if isActive {
+                ModifierSideTracker.shared.synchronizeWithKeyboard()
+                refreshModifierOutput()
                 return
             }
         }
@@ -533,16 +675,22 @@ class MyEngine: ObservableObject {
         setEventTapActive(false)
     }
 
-    private func resetInFlightKeyState() {
-        let activeMappings = Array(activeSingleMappings.values)
+    private func resetInFlightKeyState(restorePhysical: Bool = true) {
+        suppressedKeyUps.formUnion(activeSingleMappings.filter { $0.value.mapping.sourceModifier == nil }.keys)
+        if let pending = multiMappingState, PhysicalModifierKey.modifier(for: pending.keyCode) == nil { suppressedKeyUps.insert(pending.keyCode) }
+        for activeMapping in activeSingleMappings.values where activeMapping.mapping.targetModifier == nil {
+            postMappedKey(code: activeMapping.mapping.tCode, flags: mappedKeyFlags, keyDown: false)
+        }
         activeSingleMappings.removeAll()
-        for activeMapping in activeMappings {
-            Self.postMappedKeyUpWithModifierBridge(
-                mapping: activeMapping.mapping,
-                targetModifiers: activeMapping.targetModifiers,
-                targetModifierCodes: activeMapping.targetModifierCodes,
-                restoreModifierCodes: activeMapping.sourceModifierCodes
-            )
+        if tap != nil || eventPoster != nil {
+            if restorePhysical && !modifierSessionSuspended {
+                if persistsConfiguration { ModifierSideTracker.shared.synchronizeWithKeyboard() }
+                transitionModifiers(to: ModifierSideTracker.shared.heldKeyCodes)
+            } else {
+                transitionModifiers(to: [])
+            }
+        } else {
+            modifierOutput.synchronize(to: [])
         }
 
         if isWheelShowing {
@@ -554,11 +702,18 @@ class MyEngine: ObservableObject {
         ModifierSideTracker.shared.reset()
     }
 
-    private func handleKeyDown(keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+    private func handleKeyDown(proxy: CGEventTapProxy?, keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+        if let active = activeSingleMappings[keyCode] {
+            if active.mapping.targetModifier == nil {
+                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
+            }
+            return nil
+        }
         if keyCode == 53 && isWheelShowing {
             RadialWheelManager.shared.cancel()
             multiMappingState = nil
             isWheelShowing = false
+            refreshModifierOutput(proxy: proxy)
             return nil
         }
 
@@ -572,21 +727,18 @@ class MyEngine: ObservableObject {
                 isWheelShowing = false
             }
             let m = state.matches[0]
-            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
-            Self.postMappedKeyPairWithModifierBridge(
-                mapping: m,
-                sourceModifierCodes: state.modifierCodes,
-                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
-            )
+            postMappedKeyPairWithModifierBridge(mapping: m, proxy: proxy)
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
                 }
             }
             multiMappingState = nil
+            refreshModifierOutput(proxy: proxy)
+            originalEvent.flags = CGEventFlags(rawValue: outputFlags)
         }
 
-        let frontBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let frontBundleId = frontmostBundleID()
         let matches = list.filter {
             $0.isOn
                 && $0.fCode == keyCode
@@ -596,30 +748,22 @@ class MyEngine: ObservableObject {
         }
 
         if matches.count > 1 {
-            multiMappingState = (
-                keyCode,
-                modifiers,
-                ModifierSideTracker.shared.physicalCodes(for: modifiers),
-                matches
-            )
+            multiMappingState = (keyCode, matches)
             isWheelShowing = true
             let mouseLocation = NSEvent.mouseLocation
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
             let sourceCodes = ModifierSideTracker.shared.physicalCodes(for: modifiers)
-            let target = Self.postMappedKeyDownWithModifierBridge(
-                mapping: m,
-                sourceModifierCodes: sourceCodes,
-                isAutorepeat: isAutorepeat
-            )
             activeSingleMappings[keyCode] = ActiveMapping(
                 mapping: m,
-                targetModifiers: target.flags,
-                targetModifierCodes: target.codes,
-                sourceModifiers: modifiers,
+                targetModifierCodes: m.outputModifierCodes,
                 sourceModifierCodes: sourceCodes
             )
+            refreshModifierOutput(proxy: proxy)
+            if m.targetModifier == nil {
+                postMappedKey(code: m.tCode, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
+            }
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
@@ -631,15 +775,12 @@ class MyEngine: ObservableObject {
         return Unmanaged.passUnretained(originalEvent)
     }
 
-    private func handleKeyUp(keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
+    private func handleKeyUp(proxy: CGEventTapProxy?, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if let activeMapping = activeSingleMappings.removeValue(forKey: keyCode) {
-            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
-            Self.postMappedKeyUpWithModifierBridge(
-                mapping: activeMapping.mapping,
-                targetModifiers: activeMapping.targetModifiers,
-                targetModifierCodes: activeMapping.targetModifierCodes,
-                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
-            )
+            if activeMapping.mapping.targetModifier == nil {
+                postMappedKey(code: activeMapping.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            }
+            refreshModifierOutput(proxy: proxy)
             return nil
         }
 
@@ -653,18 +794,14 @@ class MyEngine: ObservableObject {
                 mapping = state.matches[0]
             }
 
-            let restoreFlags = originalEvent.flags.rawValue & ModifierKey.allMask
-            Self.postMappedKeyPairWithModifierBridge(
-                mapping: mapping,
-                sourceModifierCodes: state.modifierCodes,
-                restoreModifierCodes: ModifierSideTracker.shared.physicalCodes(for: restoreFlags)
-            )
+            postMappedKeyPairWithModifierBridge(mapping: mapping, proxy: proxy)
             if let idx = list.firstIndex(where: { $0.id == mapping.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": idx])
                 }
             }
             multiMappingState = nil
+            refreshModifierOutput(proxy: proxy)
             return nil
         }
 

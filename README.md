@@ -33,6 +33,7 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **🌍 Global Interception**: Uses low-level `CGEventTap` for system-wide key remapping
 - **🎬 Visual Recording**: No need to look up keycodes—just click "Record" and press your desired key
 - **⌨️ Modifier Support**: Full support for `⌘ Command`, `⌥ Option`, `⇧ Shift`, and `⌃ Control` combinations
+- **🔁 Modifier Key Remapping**: Remap or swap Control, Option, Shift and Command, including held keys and mouse combinations
 - **🎡 Radial Wheel**: When a key has multiple mappings, a beautiful radial wheel appears for quick selection
 - **⏯️ Pause Hotkey**: Global hotkey (default: `⇧⌘Z`) to instantly pause/resume the engine
 - **📊 Status Feedback**: Status bar icon dims when engine is paused for visual feedback
@@ -74,8 +75,8 @@ When you have multiple mappings for the same key combination, KeyMapper shows a 
 #### Usage
 
 1. **Create a Mapping**:
-   - Click "Press Original Key" and press the key you want to remap (e.g., `Ctrl`)
-   - Click "Map To" and press the target key (e.g., `Command`)
+   - Click "Press Original Key" and press the key you want to remap (e.g., `Ctrl+C`)
+   - Click "Map To" and press the target key (e.g., `Command+C`)
    - Click "Save Rule"
 
 2. **Multiple Mappings**:
@@ -96,6 +97,14 @@ When you have multiple mappings for the same key combination, KeyMapper shows a 
    - Go to Settings page
    - Click "Export Mapping Rules" to backup
    - Click "Import Config" to restore
+
+#### Remap or swap modifier keys
+
+In **Mapping Rules**, use the existing recording fields: press and release a modifier by itself to record it, then record the target modifier and save. For example, add `Control → Command`; to swap them, also add `Command → Control`. The visual key picker also accepts a modifier without a main key. A modifier can also map to a regular key or shortcut (for example, `Option → Command+V`), and a regular key or shortcut can map to a modifier. These rules show a dismissible usage tip below the rule; dismissals are saved. Modifier rules appear in the same list, with the usual notes, enable switches and app exclusions. Both physical sides are mapped while preserving their side.
+
+Shortcut rules take priority and match the original physical keys. Other keyboard and mouse events carry the remapped modifiers. The pause hotkey always uses physical keys, so it remains available after a swap. Caps Lock and Fn are not remapping targets in this version.
+
+Exports and backups use format 3.0, including modifier rules. Format 2.0 can still be imported; importing it clears modifier rules. Test the full press/hold/release sequence with your remote desktop client before relying on it.
 
 ### 🛠 Technical Details
 
@@ -118,6 +127,7 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **🌍 全局拦截**：利用底层 `CGEventTap` 技术，实现系统级按键重映射
 - **🎬 可视化录制**：无需记忆键位码，点击录制按钮后直接敲击键盘即可自动识别
 - **⌨️ 组合键支持**：完美支持 `⌘ Command`、`⌥ Option`、`⇧ Shift`、`⌃ Control` 的任意组合
+- **🔁 修饰键映射**：支持 Control、Option、Shift、Command 的单向映射与互换，持续按住及鼠标组合操作同步生效
 - **🎡 轮转转盘**：同一按键有多个映射时，弹出精美轮盘供快速选择
 - **⏯️ 暂停快捷键**：全局快捷键（默认：`⇧⌘Z`）快速暂停/恢复引擎
 - **📊 状态反馈**：引擎暂停时状态栏图标变淡，直观显示当前状态
@@ -159,8 +169,8 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 #### 使用方法
 
 1. **创建映射规则**：
-   - 点击「按下原键」，按下想要映射的键（如 `Ctrl`）
-   - 点击「映射为」，按下目标键（如 `Command`）
+   - 点击「按下原键」，按下想要映射的键（如 `Ctrl+C`）
+   - 点击「映射为」，按下目标键（如 `Command+C`）
    - 点击「保存规则」
 
 2. **多映射选择**：
@@ -181,6 +191,14 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
    - 进入设置页面
    - 点击「导出映射规则」进行备份
    - 点击「导入配置」进行恢复
+
+#### 修饰键映射与互换
+
+在原有 **映射规则** 页直接录制：单独按下并松开一个修饰键即可录入，再录制目标修饰键并保存。例如添加 `Control → Command`；需要互换时，再添加 `Command → Control`。可视化选择器也支持只选修饰键、不选主键。也可以设置 `Option → Command+V` 这类修饰键与普通键/组合键之间的映射；规则下方会显示可关闭的使用习惯提示，关闭状态会保存。修饰键映射与普通快捷键显示在同一列表，共用备注、启停开关与应用黑名单。左右键同时生效并保留侧别。
+
+快捷键规则优先匹配原始物理按键，其余键盘和鼠标事件携带映射后的修饰键。暂停热键始终按物理键触发，互换后仍可使用。本版本不提供 Caps Lock 或 Fn 的映射。
+
+导出与备份使用 3.0 格式并包含修饰键规则；仍可导入 2.0 格式，导入旧格式会清空修饰键规则。远程桌面请先在实际客户端验证按下、持续按住和松开的完整行为。
 
 ### 🛠 技术细节
 

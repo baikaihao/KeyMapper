@@ -106,6 +106,12 @@ final class ModifierSideTracker {
         heldKeyCodes.removeAll()
     }
 
+    func synchronizeWithKeyboard() {
+        heldKeyCodes = Set(PhysicalModifierKey.codes.values.flatMap { [$0.left, $0.right] }.filter {
+            CGEventSource.keyState(.hidSystemState, key: CGKeyCode($0))
+        })
+    }
+
     func sideSelection(for flags: UInt64) -> ModifierSideSelection {
         var result = ModifierSideSelection.any
         for modifier in [ModifierKey.option, .command] where (flags & modifier.flagValue) != 0 {
@@ -183,13 +189,28 @@ struct MyMap: Identifiable, Codable {
     var note: String = ""
     // 规则级应用黑名单：当前台应用 Bundle ID 在列表中时，该规则不执行
     var appBlacklist: [String] = []
+    var hasDismissedUsageHint = false
+    var createdAt: Date? = Date()
+
+    var sourceModifier: ModifierKey? { ModifierMapping.modifier(in: (fCode, fFlags)) }
+    var targetModifier: ModifierKey? { ModifierMapping.modifier(in: (tCode, tFlags)) }
+    var showsUsageHint: Bool {
+        (sourceModifier != nil) != (targetModifier != nil) && !hasDismissedUsageHint
+    }
+
+    var outputModifierCodes: Set<UInt16> {
+        if targetModifier != nil { return [tCode] }
+        return Set(ModifierKey.allCases.filter { (tFlags & $0.flagValue) != 0 }.map {
+            PhysicalModifierKey.keyCode(for: $0, side: tModifierSides.side(for: $0))
+        })
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist
+        case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, hasDismissedUsageHint, createdAt
     }
 
     // 完整初始化器，支持指定所有属性
-    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, isOn: Bool = true, note: String = "", appBlacklist: [String] = []) {
+    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, isOn: Bool = true, note: String = "", appBlacklist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
         self.id = id
         self.fCode = fCode
         self.fFlags = fFlags
@@ -200,10 +221,12 @@ struct MyMap: Identifiable, Codable {
         self.isOn = isOn
         self.note = note
         self.appBlacklist = appBlacklist
+        self.hasDismissedUsageHint = hasDismissedUsageHint
+        self.createdAt = createdAt
     }
 
     // 便捷初始化器，用于新增映射时自动生成 id，默认启用
-    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, note: String = "", appBlacklist: [String] = []) {
+    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, note: String = "", appBlacklist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
         self.fCode = fCode
         self.fFlags = fFlags
         self.fModifierSides = fModifierSides
@@ -212,6 +235,8 @@ struct MyMap: Identifiable, Codable {
         self.tModifierSides = tModifierSides
         self.note = note
         self.appBlacklist = appBlacklist
+        self.hasDismissedUsageHint = hasDismissedUsageHint
+        self.createdAt = createdAt
     }
 
     // 自定义解码用于兼容旧版本保存的规则数据。
@@ -227,6 +252,8 @@ struct MyMap: Identifiable, Codable {
         isOn = try container.decodeIfPresent(Bool.self, forKey: .isOn) ?? true
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         appBlacklist = try container.decodeIfPresent([String].self, forKey: .appBlacklist) ?? []
+        hasDismissedUsageHint = try container.decodeIfPresent(Bool.self, forKey: .hasDismissedUsageHint) ?? false
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
     }
 
     // MARK: - 按键名称转换
@@ -246,6 +273,9 @@ struct MyMap: Identifiable, Codable {
     ]
 
     static func getName(_ c: UInt16, _ f: UInt64, _ sides: ModifierSideSelection = .any) -> String {
+        if let modifier = ModifierMapping.modifier(in: (c, f)) {
+            return modifier.symbol + " " + modifier.displayName
+        }
         var s = " "
         for mod in ModifierKey.allCases {
             if (f & mod.flagValue) != 0 {
@@ -256,6 +286,41 @@ struct MyMap: Identifiable, Codable {
         }
 
         return s + (keyMap[c] ?? "K\(c) ")
+    }
+}
+
+enum RuleSortOrder: String, CaseIterable, Identifiable {
+    case newestFirst
+    case oldestFirst
+    case enabledFirst
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .newestFirst: return NSLocalizedString("rules.sort.newest", comment: "")
+        case .oldestFirst: return NSLocalizedString("rules.sort.oldest", comment: "")
+        case .enabledFirst: return NSLocalizedString("rules.sort.enabled", comment: "")
+        }
+    }
+
+    func sorted(_ rules: [MyMap]) -> [MyMap] {
+        // 没有创建时间的旧规则按原保存顺序排列，并排在有时间记录的新规则之前。
+        let oldest = rules.enumerated().sorted { lhs, rhs in
+            switch (lhs.element.createdAt, rhs.element.createdAt) {
+            case let (left?, right?) where left != right: return left < right
+            case (nil, _?): return true
+            case (_?, nil): return false
+            default: return lhs.offset < rhs.offset
+            }
+        }.map(\.element)
+        switch self {
+        case .oldestFirst: return oldest
+        case .newestFirst: return Array(oldest.reversed())
+        case .enabledFirst:
+            let newest = oldest.reversed()
+            return newest.filter(\.isOn) + newest.filter { !$0.isOn }
+        }
     }
 }
 

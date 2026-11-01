@@ -1,47 +1,5 @@
 import SwiftUI
 
-// MARK: - ModifierKey
-// 修饰键枚举，表示 macOS 的四个标准修饰键。
-// 每个修饰键关联其符号、显示名称和 CGEventFlags 位掩码值。
-
-enum ModifierKey: String, CaseIterable, Identifiable, Codable {
-    case control = "control"
-    case option = "option"
-    case shift = "shift"
-    case command = "command"
-
-    var id: String { rawValue }
-
-    var symbol: String {
-        switch self {
-        case .control: return "⌃"
-        case .option: return "⌥"
-        case .shift: return "⇧"
-        case .command: return "⌘"
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .control: return "Control"
-        case .option: return "Option"
-        case .shift: return "Shift"
-        case .command: return "Command"
-        }
-    }
-
-    var flagValue: UInt64 {
-        switch self {
-        case .control: return 0x40000
-        case .option: return 0x80000
-        case .shift: return 0x20000
-        case .command: return 0x100000
-        }
-    }
-
-    static let allMask: UInt64 = ModifierKey.allCases.reduce(0) { $0 | $1.flagValue }
-}
-
 // MARK: - KeyGridItem
 // 按键网格项，表示一个可选择的按键。
 // id 为 macOS 虚拟键码，name 为显示名称。
@@ -122,6 +80,7 @@ struct KeyPickerView: View {
     @Binding var selection: (UInt16, UInt64)?
     // Option/Command 的左右侧选择
     @Binding var modifierSides: ModifierSideSelection
+    var allowsModifierOnly = false
     // 当前选中的主按键 keyCode
     @State private var selectedKeyCode: UInt16? = nil
     // 当前选中的修饰键列表（动态扩展）
@@ -136,11 +95,13 @@ struct KeyPickerView: View {
     init(
         selection: Binding<(UInt16, UInt64)?>,
         modifierSides: Binding<ModifierSideSelection> = .constant(.any),
+        allowsModifierOnly: Bool = false,
         onDismiss: (() -> Void)? = nil,
         onConfirm: (() -> Void)? = nil
     ) {
         _selection = selection
         _modifierSides = modifierSides
+        self.allowsModifierOnly = allowsModifierOnly
         self.onDismiss = onDismiss
         self.onConfirm = onConfirm
     }
@@ -157,10 +118,16 @@ struct KeyPickerView: View {
         modifierKeys.reduce(0) { $0 | $1.flagValue }
     }
 
-    // 当前组合的可读名称
+    private var resolvedSelection: (UInt16, UInt64)? {
+        if let code = selectedKeyCode { return (code, combinedFlags) }
+        guard allowsModifierOnly, modifierKeys.count == 1,
+              let modifier = modifierKeys.first else { return nil }
+        return (PhysicalModifierKey.keyCode(for: modifier, side: .left), 0)
+    }
+
     private var combinationName: String {
-        guard let code = selectedKeyCode else { return "" }
-        return MyMap.getName(code, combinedFlags, modifierSides)
+        guard let (code, flags) = resolvedSelection else { return "" }
+        return MyMap.getName(code, flags, modifierSides)
     }
 
     var body: some View {
@@ -176,8 +143,6 @@ struct KeyPickerView: View {
             modifierSection
 
             Divider()
-
-            // MARK: 按键网格区域
             keyGridSection
 
             Divider()
@@ -226,7 +191,14 @@ struct KeyPickerView: View {
                 }
             }
 
-            if modifierKeys.contains(.option) || modifierKeys.contains(.command) {
+            if allowsModifierOnly {
+                Text(NSLocalizedString("modifiers.picker.hint", comment: ""))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            if !(allowsModifierOnly && selectedKeyCode == nil)
+                && (modifierKeys.contains(.option) || modifierKeys.contains(.command)) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(NSLocalizedString("keypicker.side", comment: ""))
                         .font(.system(size: 10))
@@ -314,7 +286,7 @@ struct KeyPickerView: View {
                     ForEach(Array(KeyGridItem.organizedRows.enumerated()), id: \.offset) { _, row in
                         HStack(spacing: 3) {
                             ForEach(row) { item in
-                                Button(action: { selectedKeyCode = item.id }) {
+                                Button(action: { selectedKeyCode = selectedKeyCode == item.id ? nil : item.id }) {
                                     Text(item.name)
                                         .font(.system(size: 12, weight: selectedKeyCode == item.id ? .semibold : .regular))
                                         .frame(maxWidth: .infinity, minHeight: 28)
@@ -348,7 +320,7 @@ struct KeyPickerView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
 
-                if selectedKeyCode != nil {
+                if resolvedSelection != nil {
                     Text(combinationName.trimmingCharacters(in: .whitespaces))
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
                         .foregroundColor(.accentColor)
@@ -387,7 +359,7 @@ struct KeyPickerView: View {
                         .frame(width: 80)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(selectedKeyCode == nil)
+                .disabled(resolvedSelection == nil)
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -437,8 +409,9 @@ struct KeyPickerView: View {
 
     // 确认选择：将修饰键和主按键组合为 (keyCode, flags) 并写入绑定变量
     private func confirmSelection() {
-        guard let code = selectedKeyCode else { return }
-        selection = (code, combinedFlags)
+        guard let value = resolvedSelection else { return }
+        selection = value
+        if ModifierMapping.modifier(in: value) != nil { modifierSides = .any }
         onConfirm?()
     }
 
@@ -447,6 +420,12 @@ struct KeyPickerView: View {
     private func loadSelection() {
         if let sel = selection {
             let (code, flags) = sel
+            if allowsModifierOnly, let modifier = ModifierMapping.modifier(in: sel) {
+                selectedKeyCode = nil
+                modifierKeys = [modifier]
+                modifierSides = .any
+                return
+            }
             selectedKeyCode = code
             modifierKeys = parseModifiersFromFlags(flags)
             if !modifierKeys.contains(.option) { modifierSides.option = .any }

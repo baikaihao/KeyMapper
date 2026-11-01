@@ -283,6 +283,7 @@ class BackupManager: ObservableObject {
         return BackupRequest(
             configuration: MappingStore.makeConfiguration(
                 mappings: engine.list,
+                modifierMappings: engine.modifierMappings,
                 blacklist: engine.blacklist,
                 pauseHotkey: engine.pauseHotkey
             ),

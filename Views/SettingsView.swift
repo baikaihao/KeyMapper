@@ -129,6 +129,31 @@ struct SettingsView: View {
                         Divider()
                             .padding(.leading, 0)
 
+                        SettingsRow(
+                            title: NSLocalizedString("default.rules.manage", comment: ""),
+                            description: NSLocalizedString("default.rules.manage.desc", comment: "")
+                        ) {
+                            Menu {
+                                Button(action: addMissingDefaultRules) {
+                                    Label(NSLocalizedString("default.rules.add.missing", comment: ""), systemImage: "plus.circle")
+                                }
+                                .disabled(!hasMissingDefaultRules)
+
+                                Button(action: confirmResetDefaultRules) {
+                                    Label(NSLocalizedString("default.rules.reset", comment: ""), systemImage: "arrow.counterclockwise")
+                                }
+                            } label: {
+                                Label(NSLocalizedString("default.rules.manage.action", comment: ""), systemImage: "rectangle.stack.badge.gearshape")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                        }
+                        .disabled(isImportInProgress || isRecHotkey)
+
+                        Divider()
+                            .padding(.leading, 0)
+
                         // 辅助功能权限状态与授权入口
                         SettingsRow(
                             title: NSLocalizedString("settings.accessibility", comment: ""),
@@ -365,6 +390,41 @@ struct SettingsView: View {
         }
     }
 
+    private var hasMissingDefaultRules: Bool {
+        MappingStore.defaultMappings().contains { defaultRule in
+            !engine.list.contains { isSameRule($0, defaultRule) }
+        }
+    }
+
+    private func addMissingDefaultRules() {
+        for defaultRule in MappingStore.defaultMappings() where !engine.list.contains(where: { isSameRule($0, defaultRule) }) {
+            engine.list.append(defaultRule)
+        }
+    }
+
+    private func confirmResetDefaultRules() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("default.rules.reset.title", comment: "")
+        alert.informativeText = NSLocalizedString("default.rules.reset.message", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("default.rules.reset.confirm", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("cancel", comment: ""))
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            engine.modifierMappings = []
+            engine.list = MappingStore.defaultMappings()
+        }
+    }
+
+    private func isSameRule(_ lhs: MyMap, _ rhs: MyMap) -> Bool {
+        lhs.fCode == rhs.fCode
+            && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
+            && lhs.fModifierSides == rhs.fModifierSides
+            && lhs.tCode == rhs.tCode
+            && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
+            && lhs.tModifierSides == rhs.tModifierSides
+    }
+
     private var isUsingDefaultPauseHotkey: Bool {
         guard let hotkey = engine.pauseHotkey else { return false }
         return hotkey.keyCode == MappingStore.defaultPauseHotkey.keyCode
@@ -472,6 +532,7 @@ struct SettingsView: View {
             do {
                 let config = MappingStore.makeConfiguration(
                     mappings: engine.list,
+                    modifierMappings: engine.modifierMappings,
                     blacklist: engine.blacklist,
                     pauseHotkey: engine.pauseHotkey
                 )
@@ -532,7 +593,7 @@ struct SettingsView: View {
             showImportError(error)
 
         case .success(let config):
-            guard confirmImport(mappingCount: config.mappings.count) else {
+            guard confirmImport(mappingCount: config.mappings.count + config.modifierMappings.count) else {
                 finishImport(importID)
                 return
             }
@@ -559,7 +620,7 @@ struct SettingsView: View {
                         title: NSLocalizedString("settings.import.success.title", comment: ""),
                         message: String(
                             format: NSLocalizedString("settings.import.success.message", comment: ""),
-                            config.mappings.count
+                            config.mappings.count + config.modifierMappings.count
                         ),
                         style: .informational
                     )

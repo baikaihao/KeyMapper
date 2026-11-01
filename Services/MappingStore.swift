@@ -7,6 +7,7 @@ class MappingStore {
 
     private enum Key {
         static let maps = "saved_maps"
+        static let modifiers = "saved_modifier_maps"
         static let pauseHotkey = "setting_pause_hotkey"
         static let blacklist = "setting_blacklist"
         static let globalBlacklistSeparated = "setting_global_blacklist_separated_from_rules_v1"
@@ -82,6 +83,19 @@ class MappingStore {
         return Self.defaultMappings()
     }
 
+    func saveModifierMappings(_ mappings: [ModifierMapping]) {
+        if let data = try? JSONEncoder().encode(mappings) {
+            defaults.set(data, forKey: Key.modifiers)
+        }
+    }
+
+    func loadModifierMappings() -> [ModifierMapping] {
+        guard let data = defaults.data(forKey: Key.modifiers),
+              let mappings = try? JSONDecoder().decode([ModifierMapping].self, from: data),
+              (try? Self.validateModifierMappings(mappings)) != nil else { return [] }
+        return mappings
+    }
+
     func savePauseHotkey(_ hotkey: (keyCode: UInt16, flags: UInt64)?) {
         if let hk = hotkey {
             if let data = try? JSONEncoder().encode(HotkeyRecord(hk)) {
@@ -134,25 +148,28 @@ class MappingStore {
 
 extension MappingStore {
     struct Configuration: Codable {
-        static let currentVersion = "2.0"
+        static let currentVersion = "3.0"
 
         let version: String
         let mappings: [MappingRecord]
+        let modifierMappings: [ModifierMapping]
         let blacklist: [String]
         let pauseHotkey: HotkeyRecord?
 
         private enum CodingKeys: String, CodingKey {
-            case version, mappings, blacklist, pauseHotkey
+            case version, mappings, modifierMappings, blacklist, pauseHotkey
         }
 
         @MainActor
         init(
             mappings: [MyMap],
+            modifierMappings: [ModifierMapping],
             blacklist: [String],
             pauseHotkey: (keyCode: UInt16, flags: UInt64)?
         ) {
             version = Self.currentVersion
             self.mappings = mappings.map(MappingRecord.init)
+            self.modifierMappings = modifierMappings
             self.blacklist = blacklist
             self.pauseHotkey = pauseHotkey.map(HotkeyRecord.init)
         }
@@ -161,6 +178,11 @@ extension MappingStore {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             version = try container.decode(String.self, forKey: .version)
             mappings = try container.decode([MappingRecord].self, forKey: .mappings)
+            if version == "2.0" {
+                modifierMappings = try container.decodeIfPresent([ModifierMapping].self, forKey: .modifierMappings) ?? []
+            } else {
+                modifierMappings = try container.decode([ModifierMapping].self, forKey: .modifierMappings)
+            }
             blacklist = try container.decode([String].self, forKey: .blacklist)
 
             // A missing pauseHotkey field means the document is incomplete. JSON null is
@@ -190,9 +212,11 @@ extension MappingStore {
         let isOn: Bool
         let note: String
         let appBlacklist: [String]
+        let hasDismissedUsageHint: Bool
+        let createdAt: Date?
 
         private enum CodingKeys: String, CodingKey {
-            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist
+            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, hasDismissedUsageHint, createdAt
         }
 
         init(from decoder: Decoder) throws {
@@ -207,6 +231,8 @@ extension MappingStore {
             isOn = try container.decode(Bool.self, forKey: .isOn)
             note = try container.decode(String.self, forKey: .note)
             appBlacklist = try container.decode([String].self, forKey: .appBlacklist)
+            hasDismissedUsageHint = try container.decodeIfPresent(Bool.self, forKey: .hasDismissedUsageHint) ?? false
+            createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         }
 
         init(_ mapping: MyMap) {
@@ -220,6 +246,8 @@ extension MappingStore {
             isOn = mapping.isOn
             note = mapping.note
             appBlacklist = mapping.appBlacklist
+            hasDismissedUsageHint = mapping.hasDismissedUsageHint
+            createdAt = mapping.createdAt
         }
     }
 
@@ -235,6 +263,7 @@ extension MappingStore {
 
     struct ValidatedConfiguration {
         let mappings: [MyMap]
+        let modifierMappings: [ModifierMapping]
         let blacklist: [String]
         let pauseHotkey: (keyCode: UInt16, flags: UInt64)
     }
@@ -249,6 +278,7 @@ extension MappingStore {
         case invalidMappingNote(Int)
         case invalidMappingBlacklist(Int)
         case invalidGlobalBlacklist
+        case invalidModifierMapping
         case invalidPauseHotkey
         case persistenceFailed
 
@@ -285,6 +315,8 @@ extension MappingStore {
                     format: NSLocalizedString("settings.import.error.invalid.rule.blacklist", comment: ""),
                     index
                 )
+            case .invalidModifierMapping:
+                return NSLocalizedString("modifiers.import.invalid", comment: "")
             case .invalidGlobalBlacklist:
                 return NSLocalizedString("settings.import.error.invalid.blacklist", comment: "")
             case .invalidPauseHotkey:
@@ -306,10 +338,11 @@ extension MappingStore {
     @MainActor
     static func makeConfiguration(
         mappings: [MyMap],
+        modifierMappings: [ModifierMapping] = [],
         blacklist: [String],
         pauseHotkey: (keyCode: UInt16, flags: UInt64)?
     ) -> Configuration {
-        Configuration(mappings: mappings, blacklist: blacklist, pauseHotkey: pauseHotkey)
+        Configuration(mappings: mappings, modifierMappings: modifierMappings, blacklist: blacklist, pauseHotkey: pauseHotkey)
     }
 
     static func encodeConfiguration(_ configuration: Configuration) throws -> Data {
@@ -336,19 +369,21 @@ extension MappingStore {
             throw ConfigurationError.invalidFormat
         }
 
-        guard configuration.version == Configuration.currentVersion else {
+        guard ["2.0", Configuration.currentVersion].contains(configuration.version) else {
             throw ConfigurationError.unsupportedVersion(configuration.version)
         }
         guard configuration.mappings.count <= maximumMappingCount else {
             throw ConfigurationError.tooManyMappings
         }
 
+        try validateModifierMappings(configuration.modifierMappings)
+
         let globalBlacklist = try validatedBlacklist(
             configuration.blacklist,
             error: .invalidGlobalBlacklist
         )
 
-        var mappingIDs = Set<UUID>()
+        var mappingIDs = Set(configuration.modifierMappings.map(\.id))
         var mappings: [MyMap] = []
         mappings.reserveCapacity(configuration.mappings.count)
 
@@ -358,8 +393,8 @@ extension MappingStore {
             guard mappingIDs.insert(record.id).inserted else {
                 throw ConfigurationError.duplicateMappingID(record.id)
             }
-            guard isValidKeyCode(record.fCode),
-                  isValidKeyCode(record.tCode),
+            guard isValidMappingKey(record.fCode, flags: record.fFlags),
+                  isValidMappingKey(record.tCode, flags: record.tFlags),
                   isValidFlags(record.fFlags),
                   isValidFlags(record.tFlags),
                   isValidModifierSides(record.fModifierSides, flags: record.fFlags),
@@ -386,7 +421,9 @@ extension MappingStore {
                     tModifierSides: record.tModifierSides,
                     isOn: record.isOn,
                     note: record.note,
-                    appBlacklist: ruleBlacklist
+                    appBlacklist: ruleBlacklist,
+                    hasDismissedUsageHint: record.hasDismissedUsageHint,
+                    createdAt: record.createdAt
                 )
             )
         }
@@ -399,6 +436,7 @@ extension MappingStore {
 
         return ValidatedConfiguration(
             mappings: mappings,
+            modifierMappings: configuration.modifierMappings,
             blacklist: globalBlacklist,
             pauseHotkey: (hotkeyRecord.keyCode, hotkeyRecord.flags)
         )
@@ -439,6 +477,7 @@ extension MappingStore {
     func persistValidatedConfiguration(_ configuration: ValidatedConfiguration) throws {
         let encoder = JSONEncoder()
         let mappingsData = try encoder.encode(configuration.mappings)
+        let modifiersData = try encoder.encode(configuration.modifierMappings)
         let blacklistData = try encoder.encode(configuration.blacklist)
         let hotkeyData = try encoder.encode(HotkeyRecord(configuration.pauseHotkey))
 
@@ -449,11 +488,13 @@ extension MappingStore {
         let previousDomain = defaults.persistentDomain(forName: domainName)
         var updatedDomain = previousDomain ?? [:]
         updatedDomain[Key.maps] = mappingsData
+        updatedDomain[Key.modifiers] = modifiersData
         updatedDomain[Key.blacklist] = blacklistData
         updatedDomain[Key.pauseHotkey] = hotkeyData
         defaults.setPersistentDomain(updatedDomain, forName: domainName)
 
         guard defaults.data(forKey: Key.maps) == mappingsData,
+              defaults.data(forKey: Key.modifiers) == modifiersData,
               defaults.data(forKey: Key.blacklist) == blacklistData,
               defaults.data(forKey: Key.pauseHotkey) == hotkeyData else {
             if let previousDomain {
@@ -463,6 +504,27 @@ extension MappingStore {
             }
             throw ConfigurationError.persistenceFailed
         }
+    }
+
+    private static func validateModifierMappings(_ mappings: [ModifierMapping]) throws {
+        guard mappings.count <= ModifierKey.allCases.count else {
+            throw ConfigurationError.invalidModifierMapping
+        }
+        var sources = Set<ModifierKey>()
+        var ids = Set<UUID>()
+        for mapping in mappings {
+            guard mapping.source != mapping.target,
+                  sources.insert(mapping.source).inserted,
+                  ids.insert(mapping.id).inserted,
+                  mapping.note.utf8.count <= maximumNoteByteCount else {
+                throw ConfigurationError.invalidModifierMapping
+            }
+            _ = try validatedBlacklist(mapping.appBlacklist, error: .invalidModifierMapping)
+        }
+    }
+
+    private static func isValidMappingKey(_ code: UInt16, flags: UInt64) -> Bool {
+        isValidKeyCode(code) || ModifierMapping.modifier(in: (code, flags)) != nil
     }
 
     private static func isValidKeyCode(_ keyCode: UInt16) -> Bool {

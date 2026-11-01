@@ -25,6 +25,7 @@ struct KeyLogic: NSViewRepresentable {
     @Binding var t2: (UInt16, UInt64)?
     @Binding var s1: ModifierSideSelection
     @Binding var s2: ModifierSideSelection
+    var allowsModifierOnly: Bool
 
     init(
         r1: Binding<Bool>,
@@ -32,7 +33,8 @@ struct KeyLogic: NSViewRepresentable {
         t1: Binding<(UInt16, UInt64)?>,
         t2: Binding<(UInt16, UInt64)?>,
         s1: Binding<ModifierSideSelection> = .constant(.any),
-        s2: Binding<ModifierSideSelection> = .constant(.any)
+        s2: Binding<ModifierSideSelection> = .constant(.any),
+        allowsModifierOnly: Bool = false
     ) {
         _r1 = r1
         _r2 = r2
@@ -40,10 +42,11 @@ struct KeyLogic: NSViewRepresentable {
         _t2 = t2
         _s1 = s1
         _s2 = s2
+        self.allowsModifierOnly = allowsModifierOnly
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(r1: $r1, r2: $r2, t1: $t1, t2: $t2, s1: $s1, s2: $s2)
+        Coordinator(r1: $r1, r2: $r2, t1: $t1, t2: $t2, s1: $s1, s2: $s2, allowsModifierOnly: allowsModifierOnly)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -54,6 +57,8 @@ struct KeyLogic: NSViewRepresentable {
     // 当录制状态变化时，主动将 KV 设为第一响应者以确保能接收键盘事件
     func updateNSView(_ nsView: NSView, context: Context) {
         if let kv = nsView as? KV {
+            context.coordinator.allowsModifierOnly = allowsModifierOnly
+            kv.prepareRecording()
             if (r1 || r2) && kv.window?.firstResponder != kv {
                 DispatchQueue.main.async {
                     guard context.coordinator.r1 || context.coordinator.r2 else { return }
@@ -79,6 +84,7 @@ struct KeyLogic: NSViewRepresentable {
         @Binding var t2: (UInt16, UInt64)?
         @Binding var s1: ModifierSideSelection
         @Binding var s2: ModifierSideSelection
+        var allowsModifierOnly: Bool
 
         init(
             r1: Binding<Bool>,
@@ -86,7 +92,8 @@ struct KeyLogic: NSViewRepresentable {
             t1: Binding<(UInt16, UInt64)?>,
             t2: Binding<(UInt16, UInt64)?>,
             s1: Binding<ModifierSideSelection>,
-            s2: Binding<ModifierSideSelection>
+            s2: Binding<ModifierSideSelection>,
+            allowsModifierOnly: Bool
         ) {
             _r1 = r1
             _r2 = r2
@@ -94,6 +101,7 @@ struct KeyLogic: NSViewRepresentable {
             _t2 = t2
             _s1 = s1
             _s2 = s2
+            self.allowsModifierOnly = allowsModifierOnly
         }
     }
 }
@@ -105,6 +113,16 @@ struct KeyLogic: NSViewRepresentable {
 
 class KV: NSView {
     var coordinator: KeyLogic.Coordinator
+    private var modifierRecording = ModifierKeyRecording()
+    private var recordingSlot: Int?
+
+    func prepareRecording(initialHeld: Set<UInt16>? = nil) {
+        let slot = coordinator.r1 ? 1 : (coordinator.r2 ? 2 : nil)
+        if slot != recordingSlot {
+            recordingSlot = slot
+            modifierRecording.begin(held: initialHeld ?? ModifierSideTracker.shared.heldKeyCodes)
+        }
+    }
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -127,6 +145,10 @@ class KV: NSView {
 
     override func resignFirstResponder() -> Bool {
         let didResign = super.resignFirstResponder()
+        if didResign {
+            modifierRecording.begin()
+            recordingSlot = nil
+        }
         if didResign && (coordinator.r1 || coordinator.r2) {
             coordinator.r1 = false
             coordinator.r2 = false
@@ -139,7 +161,12 @@ class KV: NSView {
         let code = UInt16(event.keyCode)
         let flags = UInt64(event.modifierFlags.rawValue) & ModifierKey.allMask
         let sides = ModifierSideTracker.shared.sideSelection(for: flags)
+        finishRecording(code: code, flags: flags, sides: sides)
+    }
 
+    private func finishRecording(code: UInt16, flags: UInt64, sides: ModifierSideSelection) {
+        modifierRecording.begin()
+        recordingSlot = nil
         if coordinator.r1 == true {
             coordinator.t1 = (code, flags)
             coordinator.s1 = sides
@@ -176,11 +203,17 @@ class KV: NSView {
     }
 
     override func flagsChanged(with e: NSEvent) {
-        ModifierSideTracker.shared.updateFlagsChanged(
-            keyCode: UInt16(e.keyCode),
-            flags: UInt64(e.modifierFlags.rawValue)
-        )
-        if coordinator.r1 == true || coordinator.r2 == true {
+        let code = UInt16(e.keyCode)
+        ModifierSideTracker.shared.updateFlagsChanged(keyCode: code, flags: UInt64(e.modifierFlags.rawValue))
+        if coordinator.r1 || coordinator.r2 {
+            guard coordinator.allowsModifierOnly else { return }
+            let held = ModifierSideTracker.shared.heldKeyCodes
+            let isDown = held.contains(code)
+            let previousHeld = isDown ? held.subtracting([code]) : held.union([code])
+            prepareRecording(initialHeld: previousHeld)
+            if let recordedCode = modifierRecording.update(keyCode: code, isDown: isDown) {
+                finishRecording(code: recordedCode, flags: 0, sides: .any)
+            }
             return
         }
         super.flagsChanged(with: e)

@@ -21,6 +21,10 @@
 
 /* Rules View */
 "rules.title" = "Rules List";
+"rules.sort" = "Sort";
+"rules.sort.newest" = "Recently Added";
+"rules.sort.oldest" = "Earliest Added";
+"rules.sort.enabled" = "Enabled First";
 "rules.original.key" = "Original Key";
 "rules.map.to" = "Map To";
 "rules.enable" = "Enable";
@@ -34,6 +38,8 @@
 "rules.note.placeholder" = "Add note...";
 "rules.edit.key" = "Edit Key";
 "default.rules.manage" = "Default Rules";
+"default.rules.manage.action" = "Manage";
+"default.rules.manage.desc" = "Add missing default rules or reset the rule list to defaults.";
 "default.rules.add.missing" = "Add Missing Default Rules";
 "default.rules.reset" = "Reset to Default Rules";
 "default.rules.reset.title" = "Reset default rules?";
@@ -221,3 +227,9 @@
 "launch.at.login.error.message" = "Try moving the app to the Applications folder and try again.";
 "ok" = "OK";
 "cancel" = "Cancel";
+
+// Modifier key mappings
+"modifiers.import.invalid" = "Invalid modifier mappings. Each source must be unique, map to a different modifier, and have a valid app exclusion list.";
+"modifiers.picker.hint" = "To select a modifier by itself, choose one modifier and leave the main key unselected.";
+"modifiers.usage.hint" = "Please check whether this rule matches how you use your keyboard.";
+"modifiers.usage.dismiss" = "Dismiss this rule tip";

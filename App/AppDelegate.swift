@@ -67,6 +67,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         cancelKeyRecording()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        MyEngine.shared.stop()
+    }
+
     static func syncLaunchAtLoginState() {
         let service = SMAppService.mainApp
         let systemEnabled = (service.status == .enabled)

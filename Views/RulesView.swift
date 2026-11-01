@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 
 struct RulesView: View {
     @StateObject var engine = MyEngine.shared
+    @AppStorage("rules_sort_order") private var sortOrder: RuleSortOrder = .newestFirst
     @State private var tmpTrig: (UInt16, UInt64)?
     @State private var tmpTarg: (UInt16, UInt64)?
     @State private var tmpTrigSides: ModifierSideSelection = .any
@@ -29,6 +30,10 @@ struct RulesView: View {
     @State private var editSelectionSides: ModifierSideSelection = .any
     @State private var runningApps: [RunningAppInfo] = []
 
+    private var allRules: [MyMap] {
+        engine.list + engine.modifierMappings.map(\.rule)
+    }
+
     enum KeyType {
         case source
         case target
@@ -44,21 +49,19 @@ struct RulesView: View {
                 Spacer()
 
                 Menu {
-                    Button(action: addMissingDefaultRules) {
-                        Label(NSLocalizedString("default.rules.add.missing", comment: ""), systemImage: "plus.circle")
+                    Picker(NSLocalizedString("rules.sort", comment: ""), selection: $sortOrder) {
+                        ForEach(RuleSortOrder.allCases) { order in
+                            Text(order.title).tag(order)
+                        }
                     }
-                    .disabled(!hasMissingDefaultRules)
-
-                    Button(action: confirmResetDefaultRules) {
-                        Label(NSLocalizedString("default.rules.reset", comment: ""), systemImage: "arrow.counterclockwise")
-                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
                 } label: {
-                    Label(NSLocalizedString("default.rules.manage", comment: ""), systemImage: "rectangle.stack.badge.gearshape")
+                    Label(NSLocalizedString("rules.sort", comment: ""), systemImage: "arrow.up.arrow.down")
                         .font(.system(size: 11, weight: .medium))
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-
             }
             .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
@@ -68,7 +71,7 @@ struct RulesView: View {
             // 规则列表
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(engine.list) { m in
+                    ForEach(sortOrder.sorted(allRules)) { m in
                         RuleItemRow(
                             mapping: m,
                             isEditingNote: editingNoteId == m.id,
@@ -76,9 +79,7 @@ struct RulesView: View {
                             isEnabled: Binding(
                                 get: { m.isOn },
                                 set: { val in
-                                    if let idx = engine.list.firstIndex(where: { $0.id == m.id }) {
-                                        engine.list[idx].isOn = val
-                                    }
+                                    updateRule(m.id) { $0.isOn = val }
                                 }
                             ),
                             onEditSource: {
@@ -105,8 +106,12 @@ struct RulesView: View {
                             onCancelNote: {
                                 editingNoteId = nil
                             },
+                            onDismissUsageHint: {
+                                updateRule(m.id) { $0.hasDismissedUsageHint = true }
+                            },
                             onDelete: {
                                 engine.list.removeAll { $0.id == m.id }
+                                engine.modifierMappings.removeAll { $0.id == m.id }
                             },
                             runningApps: runningApps,
                             onAddRunningAppBlacklist: { bundleId in
@@ -165,7 +170,7 @@ struct RulesView: View {
                             .buttonStyle(.plain)
                             .help(NSLocalizedString("rules.pick.key", comment: ""))
                             .popover(isPresented: $showSourceKeyPicker) {
-                                KeyPickerView(selection: $tmpTrig, modifierSides: $tmpTrigSides, onDismiss: {
+                                KeyPickerView(selection: $tmpTrig, modifierSides: $tmpTrigSides, allowsModifierOnly: true, onDismiss: {
                                     showSourceKeyPicker = false
                                 }, onConfirm: {
                                     showSourceKeyPicker = false
@@ -212,7 +217,7 @@ struct RulesView: View {
                             .buttonStyle(.plain)
                             .help(NSLocalizedString("rules.pick.key", comment: ""))
                             .popover(isPresented: $showTargetKeyPicker) {
-                                KeyPickerView(selection: $tmpTarg, modifierSides: $tmpTargSides, onDismiss: {
+                                KeyPickerView(selection: $tmpTarg, modifierSides: $tmpTargSides, allowsModifierOnly: true, onDismiss: {
                                     showTargetKeyPicker = false
                                 }, onConfirm: {
                                     showTargetKeyPicker = false
@@ -246,11 +251,12 @@ struct RulesView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(tmpTrig == nil || tmpTarg == nil || isRec1 || isRec2)
+
             }
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg, s1: $tmpTrigSides, s2: $tmpTargSides))
+        .background(KeyLogic(r1: $isRec1, r2: $isRec2, t1: $tmpTrig, t2: $tmpTarg, s1: $tmpTrigSides, s2: $tmpTargSides, allowsModifierOnly: true))
         .onChange(of: isRec1) { _ in engine.isRecording = isRec1 || isRec2 }
         .onChange(of: isRec2) { _ in engine.isRecording = isRec1 || isRec2 }
         // 打开选择器时退出录制模式
@@ -274,7 +280,7 @@ struct RulesView: View {
                         editSelection = nil
                     }
                     .overlay(alignment: .center) {
-                        KeyPickerView(selection: $editSelection, modifierSides: $editSelectionSides, onDismiss: {
+                        KeyPickerView(selection: $editSelection, modifierSides: $editSelectionSides, allowsModifierOnly: true, onDismiss: {
                             showEditKeyPicker = false
                         }, onConfirm: {
                             applyKeyEdit()
@@ -307,16 +313,16 @@ struct RulesView: View {
 
     func applyKeyEdit() {
         guard let ruleId = editingRuleId, let newKey = editSelection else { return }
-        if let idx = engine.list.firstIndex(where: { $0.id == ruleId }) {
+        updateRule(ruleId) { rule in
             switch editingKeyType {
             case .source:
-                engine.list[idx].fCode = newKey.0
-                engine.list[idx].fFlags = newKey.1
-                engine.list[idx].fModifierSides = editSelectionSides
+                rule.fCode = newKey.0
+                rule.fFlags = newKey.1
+                rule.fModifierSides = editSelectionSides
             case .target:
-                engine.list[idx].tCode = newKey.0
-                engine.list[idx].tFlags = newKey.1
-                engine.list[idx].tModifierSides = editSelectionSides
+                rule.tCode = newKey.0
+                rule.tFlags = newKey.1
+                rule.tModifierSides = editSelectionSides
             }
         }
         editingRuleId = nil
@@ -328,13 +334,8 @@ struct RulesView: View {
         guard !isRec1, !isRec2, let a = tmpTrig, let b = tmpTarg else { return }
 
         engine.list.append(MyMap(
-            fCode: a.0,
-            fFlags: a.1,
-            tCode: b.0,
-            tFlags: b.1,
-            fModifierSides: tmpTrigSides,
-            tModifierSides: tmpTargSides,
-            note: tmpNote
+            fCode: a.0, fFlags: a.1, tCode: b.0, tFlags: b.1,
+            fModifierSides: tmpTrigSides, tModifierSides: tmpTargSides, note: tmpNote
         ))
         tmpTrig = nil
         tmpTarg = nil
@@ -344,52 +345,33 @@ struct RulesView: View {
         cancelKeyRecording()
     }
 
-    var hasMissingDefaultRules: Bool {
-        MappingStore.defaultMappings().contains { defaultRule in
-            !engine.list.contains { isSameRule($0, defaultRule) }
+    private func updateRule(_ id: UUID, change: (inout MyMap) -> Void) {
+        guard let original = allRules.first(where: { $0.id == id }) else { return }
+        var rule = original
+        change(&rule)
+        if rule.fCode != original.fCode || rule.fFlags != original.fFlags
+            || rule.tCode != original.tCode || rule.tFlags != original.tFlags
+            || rule.fModifierSides != original.fModifierSides || rule.tModifierSides != original.tModifierSides {
+            rule.hasDismissedUsageHint = false
         }
-    }
-
-    func addMissingDefaultRules() {
-        for defaultRule in MappingStore.defaultMappings() where !engine.list.contains(where: { isSameRule($0, defaultRule) }) {
-            engine.list.append(defaultRule)
+        if let index = engine.list.firstIndex(where: { $0.id == id }) {
+            engine.list[index] = rule
+        } else if engine.modifierMappings.contains(where: { $0.id == id }) {
+            // 兼容此前保存的独立修饰键规则，编辑后统一使用普通规则模型。
+            engine.modifierMappings.removeAll { $0.id == id }
+            engine.list.append(rule)
         }
-    }
-
-    func confirmResetDefaultRules() {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = NSLocalizedString("default.rules.reset.title", comment: "")
-        alert.informativeText = NSLocalizedString("default.rules.reset.message", comment: "")
-        alert.addButton(withTitle: NSLocalizedString("default.rules.reset.confirm", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("cancel", comment: ""))
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            engine.list = MappingStore.defaultMappings()
-        }
-    }
-
-    private func isSameRule(_ lhs: MyMap, _ rhs: MyMap) -> Bool {
-        lhs.fCode == rhs.fCode
-            && (lhs.fFlags & ModifierKey.allMask) == (rhs.fFlags & ModifierKey.allMask)
-            && lhs.fModifierSides == rhs.fModifierSides
-            && lhs.tCode == rhs.tCode
-            && (lhs.tFlags & ModifierKey.allMask) == (rhs.tFlags & ModifierKey.allMask)
-            && lhs.tModifierSides == rhs.tModifierSides
     }
 
     func saveNote(for id: UUID) {
-        if let idx = engine.list.firstIndex(where: { $0.id == id }) {
-            engine.list[idx].note = editingNoteText
-        }
+        updateRule(id) { $0.note = editingNoteText }
         editingNoteId = nil
     }
 
     func addAppBlacklist(_ bundleId: String, to id: UUID) {
-        guard let idx = engine.list.firstIndex(where: { $0.id == id }),
-              !engine.list[idx].appBlacklist.contains(bundleId) else { return }
-
-        engine.list[idx].appBlacklist.append(bundleId)
+        updateRule(id) {
+            if !$0.appBlacklist.contains(bundleId) { $0.appBlacklist.append(bundleId) }
+        }
     }
 
     func addAppBlacklistFromFinder(to id: UUID) {
@@ -408,9 +390,7 @@ struct RulesView: View {
     }
 
     func removeAppBlacklist(_ bundleId: String, from id: UUID) {
-        if let idx = engine.list.firstIndex(where: { $0.id == id }) {
-            engine.list[idx].appBlacklist.removeAll { $0 == bundleId }
-        }
+        updateRule(id) { $0.appBlacklist.removeAll { $0 == bundleId } }
     }
 
     func refreshRunningApps() {
@@ -449,6 +429,7 @@ struct RuleItemRow: View {
     let onStartEditingNote: () -> Void
     let onSaveNote: () -> Void
     let onCancelNote: () -> Void
+    let onDismissUsageHint: () -> Void
     let onDelete: () -> Void
     let runningApps: [RunningAppInfo]
     let onAddRunningAppBlacklist: (String) -> Void
@@ -533,6 +514,21 @@ struct RuleItemRow: View {
                 onAddFromFinder: onAddAppBlacklistFromFinder,
                 onDelete: onRemoveAppBlacklist
             )
+
+            if mapping.showsUsageHint {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                    Text(NSLocalizedString("modifiers.usage.hint", comment: ""))
+                    Spacer()
+                    Button(action: onDismissUsageHint) {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString("modifiers.usage.dismiss", comment: ""))
+                }
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            }
         }
         .padding(12)
         .background(
