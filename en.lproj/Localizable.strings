@@ -20,6 +20,21 @@
 "sidebar.pause.hint" = "Press %@ to pause/resume mapping";
 
 /* Rules View */
+"rules.list.inactive" = "Not active";
+"rules.list.blacklist" = "Blacklist";
+"rules.list.whitelist" = "Whitelist";
+"rules.list.blacklist.add" = "Add to Blacklist";
+"rules.list.whitelist.add" = "Add to Whitelist";
+"rules.list.blacklist.desc" = "Disabled in these apps";
+"rules.list.whitelist.desc" = "Only active in these apps";
+"rules.list.whitelist.empty" = "Add apps to enable this rule";
+"rules.usage.tip" = "Usage Tip";
+"rules.edit" = "Edit Rule";
+"rules.delete" = "Delete Rule";
+"rules.details.expand" = "Show Details";
+"rules.details.collapse" = "Hide Details";
+"rules.excluded.app" = "Disabled in %@";
+"rules.excluded.count" = "Disabled in %d apps";
 "rules.title" = "Rules List";
 "rules.sort" = "Sort";
 "rules.sort.newest" = "Recently Added";
@@ -142,6 +157,9 @@
 "toast.preview" = "Preview";
 
 /* Auto Backup */
+"settings.backup.details" = "Backup Details";
+"settings.backup.details.show" = "Show Backup Details";
+"settings.backup.details.hide" = "Hide Backup Details";
 "settings.auto.backup" = "Auto Backup";
 "settings.auto.backup.enable" = "Enable Auto Backup";
 "settings.auto.backup.enable.desc" = "Automatically backup mapping rules periodically";
@@ -243,3 +261,15 @@
 "modifiers.picker.hint" = "To select a modifier by itself, choose one modifier and leave the main key unselected.";
 "modifiers.usage.hint" = "Please check whether this rule matches how you use your keyboard.";
 "modifiers.usage.dismiss" = "Dismiss this rule tip";
+
+// Per-rule application scope
+"app.filter.title" = "Application Scope";
+"app.filter.blacklist" = "Exclude Selected Apps";
+"app.filter.whitelist" = "Only in Selected Apps";
+"app.filter.select" = "Select an app for this rule";
+"app.filter.whitelist.empty" = "No apps selected. This rule will not run until you add an app.";
+"app.filter.whitelist.desc" = "This rule runs only in these apps. The global blacklist still takes priority.";
+"rules.allowed.app" = "Only in %@";
+"rules.allowed.count" = "Only in %d apps";
+"rules.allowed.none" = "No allowed apps";
+"settings.import.error.invalid.rule.whitelist" = "Mapping rule %d contains an invalid or duplicate app whitelist entry.";

@@ -20,6 +20,21 @@
 "sidebar.pause.hint" = "按下 %@ 暂停/恢复映射";
 
 /* Rules View */
+"rules.list.inactive" = "未启用";
+"rules.list.blacklist" = "黑名单";
+"rules.list.whitelist" = "白名单";
+"rules.list.blacklist.add" = "添加黑名单应用";
+"rules.list.whitelist.add" = "添加白名单应用";
+"rules.list.blacklist.desc" = "在这些应用中停用";
+"rules.list.whitelist.desc" = "仅在这些应用中生效";
+"rules.list.whitelist.empty" = "请添加生效应用";
+"rules.usage.tip" = "使用提示";
+"rules.edit" = "编辑规则";
+"rules.delete" = "删除规则";
+"rules.details.expand" = "展开编辑";
+"rules.details.collapse" = "收起详情";
+"rules.excluded.app" = "在 %@ 中停用";
+"rules.excluded.count" = "在 %d 个应用中停用";
 "rules.title" = "规则列表";
 "rules.sort" = "排序";
 "rules.sort.newest" = "最近添加";
@@ -142,6 +157,9 @@
 "toast.preview" = "预览效果";
 
 /* Auto Backup */
+"settings.backup.details" = "备份详情";
+"settings.backup.details.show" = "展开备份详情";
+"settings.backup.details.hide" = "收起备份详情";
 "settings.auto.backup" = "自动备份";
 "settings.auto.backup.enable" = "启用自动备份";
 "settings.auto.backup.enable.desc" = "定期自动备份映射规则";
@@ -243,3 +261,15 @@
 "modifiers.picker.hint" = "单独映射修饰键时，只选择一个修饰键，无需选择下方主键。";
 "modifiers.usage.hint" = "请检查该规则是否符合您的使用习惯。";
 "modifiers.usage.dismiss" = "关闭这条规则的提示";
+
+// Per-rule application scope
+"app.filter.title" = "应用生效范围";
+"app.filter.blacklist" = "排除指定应用";
+"app.filter.whitelist" = "仅在指定应用生效";
+"app.filter.select" = "选择此规则的应用";
+"app.filter.whitelist.empty" = "尚未选择应用，添加应用后此规则才会生效。";
+"app.filter.whitelist.desc" = "此规则仅在以下应用中生效，全局黑名单仍优先。";
+"rules.allowed.app" = "仅在 %@ 生效";
+"rules.allowed.count" = "仅在 %d 个应用生效";
+"rules.allowed.none" = "尚未指定生效应用";
+"settings.import.error.invalid.rule.whitelist" = "第 %d 条映射规则包含无效或重复的应用白名单条目。";

@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 // MARK: - RulesView
 // 映射规则管理页面。
-// 上方展示所有映射规则列表（源键 → 目标键 + 备注 + 启用开关 + 删除按钮），
+// 上方展示映射规则摘要与可展开的编辑详情，
 // 下方提供新增映射的录入区：支持录制模式和选择模式两种输入方式。
 
 struct RulesView: View {
@@ -68,12 +68,12 @@ struct RulesView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 12)
 
-            // 按可用宽度增加列数，窄窗口保留单列；每张卡片至少预留 440pt。
+            // 按可用宽度增加列数，窄窗口保留单列；每张卡片至少预留 380pt。
             ScrollView {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 440), spacing: 12, alignment: .top)],
+                    columns: [GridItem(.adaptive(minimum: 380), spacing: 14, alignment: .top)],
                     alignment: .leading,
-                    spacing: 8
+                    spacing: 14
                 ) {
                     ForEach(sortOrder.sorted(allRules)) { m in
                         RuleItemRow(
@@ -118,20 +118,25 @@ struct RulesView: View {
                                 engine.modifierMappings.removeAll { $0.id == m.id }
                             },
                             runningApps: runningApps,
-                            onAddRunningAppBlacklist: { bundleId in
-                                addAppBlacklist(bundleId, to: m.id)
+                            appFilterMode: Binding(
+                                get: { m.appFilterMode },
+                                set: { mode in updateRule(m.id) { $0.appFilterMode = mode } }
+                            ),
+                            onAddRunningAppFilter: { bundleId, list in
+                                addAppFilter(bundleId, list: list, to: m.id)
                             },
-                            onAddAppBlacklistFromFinder: {
-                                addAppBlacklistFromFinder(to: m.id)
+                            onAddAppFilterFromFinder: { list in
+                                addAppFilterFromFinder(list: list, to: m.id)
                             },
-                            onRemoveAppBlacklist: { bundleId in
-                                removeAppBlacklist(bundleId, from: m.id)
+                            onRemoveAppFilter: { bundleId, list in
+                                removeAppFilter(bundleId, list: list, from: m.id)
                             }
                         )
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
+                .modifier(RulesScrollHeight(ruleIDs: allRules.map(\.id), sortOrder: sortOrder))
             }
 
             Divider()
@@ -370,29 +375,30 @@ struct RulesView: View {
         editingNoteId = nil
     }
 
-    func addAppBlacklist(_ bundleId: String, to id: UUID) {
+    func addAppFilter(_ bundleId: String, list: AppFilterMode, to id: UUID) {
         updateRule(id) {
-            if !$0.appBlacklist.contains(bundleId) { $0.appBlacklist.append(bundleId) }
+            $0.appFilterMode = list
+            if !$0[appList: list].contains(bundleId) { $0[appList: list].append(bundleId) }
         }
     }
 
-    func addAppBlacklistFromFinder(to id: UUID) {
+    func addAppFilterFromFinder(list: AppFilterMode, to id: UUID) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.message = NSLocalizedString("app.blacklist.select", comment: "")
+        panel.message = NSLocalizedString("app.filter.select", comment: "")
 
         guard panel.runModal() == .OK,
               let url = panel.url,
               let bundle = Bundle(url: url),
               let bundleId = bundle.bundleIdentifier else { return }
 
-        addAppBlacklist(bundleId, to: id)
+        addAppFilter(bundleId, list: list, to: id)
     }
 
-    func removeAppBlacklist(_ bundleId: String, from id: UUID) {
-        updateRule(id) { $0.appBlacklist.removeAll { $0 == bundleId } }
+    func removeAppFilter(_ bundleId: String, list: AppFilterMode, from id: UUID) {
+        updateRule(id) { $0[appList: list].removeAll { $0 == bundleId } }
     }
 
     func refreshRunningApps() {
@@ -411,6 +417,33 @@ struct RulesView: View {
     }
 }
 
+// 保留当前宽度下出现过的最大内容高度。收起卡片时，减少的高度转为底部留白，
+// 防止滚动到列表末尾后因内容变短而被 ScrollView 强制上移。
+private struct RulesScrollHeight: ViewModifier {
+    let ruleIDs: [UUID]
+    let sortOrder: RuleSortOrder
+    @State private var retainedSize: CGSize = .zero
+
+    func body(content: Content) -> some View {
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGSize.self) { geometry in
+                geometry.size
+            } action: { size in
+                guard size.width > 0 else { return }
+                if size.width != retainedSize.width {
+                    // 换宽度的首轮高度可能仍含 LazyVGrid 的旧行高估算，先清空留白。
+                    retainedSize = CGSize(width: size.width, height: 0)
+                } else if size.height > retainedSize.height {
+                    retainedSize.height = size.height
+                }
+            }
+            .frame(minHeight: retainedSize.height, alignment: .top)
+            .onChange(of: ruleIDs) { _ in retainedSize = .zero }
+            .onChange(of: sortOrder) { _ in retainedSize = .zero }
+    }
+}
+
 struct RunningAppInfo: Identifiable {
     let bundleId: String
     let name: String
@@ -419,7 +452,14 @@ struct RunningAppInfo: Identifiable {
 }
 
 // MARK: - RuleItemRow
-// 映射规则卡片行，展示源按键、目标按键、备注、启用开关和删除按钮。
+// 默认展示规则摘要，点击卡片展开按键、备注和应用黑名单编辑。
+
+private enum RuleCardTypography {
+    static let bodySize: CGFloat = 12
+    static let key = Font.system(size: 13, weight: .semibold)
+    static let body = Font.system(size: bodySize)
+    static let label = Font.system(size: bodySize, weight: .medium)
+}
 
 struct RuleItemRow: View {
     let mapping: MyMap
@@ -434,118 +474,243 @@ struct RuleItemRow: View {
     let onDismissUsageHint: () -> Void
     let onDelete: () -> Void
     let runningApps: [RunningAppInfo]
-    let onAddRunningAppBlacklist: (String) -> Void
-    let onAddAppBlacklistFromFinder: () -> Void
-    let onRemoveAppBlacklist: (String) -> Void
+    @Binding var appFilterMode: AppFilterMode
+    let onAddRunningAppFilter: (String, AppFilterMode) -> Void
+    let onAddAppFilterFromFinder: (AppFilterMode) -> Void
+    let onRemoveAppFilter: (String, AppFilterMode) -> Void
+
+    @State private var isExpanded = false
+    @State private var isHovered = false
+
+    private var sourceName: String {
+        MyMap.getName(mapping.fCode, mapping.fFlags, mapping.fModifierSides)
+    }
+
+    private var targetName: String {
+        MyMap.getName(mapping.tCode, mapping.tFlags, mapping.tModifierSides)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        RuleKeyButton(
-                            title: MyMap.getName(mapping.fCode, mapping.fFlags, mapping.fModifierSides),
-                            foregroundColor: .primary,
-                            action: onEditSource
-                        )
-
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.secondary)
-
-                        RuleKeyButton(
-                            title: MyMap.getName(mapping.tCode, mapping.tFlags, mapping.tModifierSides),
-                            foregroundColor: .accentColor,
-                            action: onEditTarget
-                        )
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
+                    alignedColumns(showsArrow: true) {
+                        Button(action: onEditSource) {
+                            shortcutLabel(sourceName, isTarget: false)
+                        }
+                        .buttonStyle(.plain)
+                    } target: {
+                        Button(action: onEditTarget) {
+                            shortcutLabel(targetName, isTarget: true)
+                        }
+                        .buttonStyle(.plain)
                     }
 
-                    HStack(spacing: 6) {
-                        Text(NSLocalizedString("rules.note", comment: ""))
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.secondary)
-
-                        if isEditingNote {
-                            RuleNoteTextField(
-                                text: $editingNoteText,
-                                placeholder: NSLocalizedString("rules.note.placeholder", comment: ""),
-                                onCommit: onSaveNote,
-                                onCancel: onCancelNote
-                            )
-                            .frame(height: 22)
-                            .padding(.horizontal, 6)
-                            .background(Color(NSColor.textBackgroundColor))
-                            .cornerRadius(5)
-                        } else {
-                            Text(noteText)
-                                .font(.system(size: 10))
-                                .foregroundColor(mapping.note.isEmpty ? .secondary.opacity(0.75) : .secondary)
+                    alignedColumns(showsArrow: false) {
+                        Text(mapping.note)
+                            .font(RuleCardTypography.body)
+                            .lineLimit(1)
+                    } target: {
+                        if mapping.appFilterMode == .whitelist || !mapping.appBlacklist.isEmpty {
+                            Text(appFilterSummary)
+                                .font(RuleCardTypography.body)
                                 .lineLimit(1)
-                                .truncationMode(.tail)
+                        } else if mapping.showsUsageHint {
+                            Label(NSLocalizedString("rules.usage.tip", comment: ""), systemImage: "info.circle")
+                                .font(RuleCardTypography.body)
+                                .lineLimit(1)
+                                .help(NSLocalizedString("modifiers.usage.hint", comment: ""))
+                        } else {
+                            Color.clear
                         }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if !isEditingNote {
-                            onStartEditingNote()
-                        }
+                    .foregroundColor(.secondary)
+                    .frame(height: 16)
+                }
+                .opacity(isEnabled ? 1 : 0.45)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    Toggle(NSLocalizedString("rules.enable", comment: ""), isOn: $isEnabled)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .labelsHidden()
+                        .frame(width: 36, height: 28)
+
+                    Button(action: toggleDetails) {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, height: 24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.primary.opacity(isExpanded || isHovered ? 0.06 : 0))
+                            )
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .help(NSLocalizedString(isExpanded ? "rules.details.collapse" : "rules.details.expand", comment: ""))
+                    .accessibilityLabel(NSLocalizedString(isExpanded ? "rules.details.collapse" : "rules.details.expand", comment: ""))
                 }
-
-                Spacer(minLength: 12)
-
-                Toggle("", isOn: $isEnabled)
-                    .toggleStyle(.switch)
-                    .scaleEffect(0.7)
-                    .labelsHidden()
-                    .frame(width: 52, alignment: .center)
-
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-                .frame(width: 24, height: 24)
+                .frame(width: 68, height: 28)
             }
 
-            RuleAppBlacklistSection(
-                bundleIds: mapping.appBlacklist,
-                runningApps: runningApps,
-                onAddRunningApp: onAddRunningAppBlacklist,
-                onAddFromFinder: onAddAppBlacklistFromFinder,
-                onDelete: onRemoveAppBlacklist
-            )
+            if isExpanded {
+                ruleDetails
+            }
 
-            if mapping.showsUsageHint {
-                HStack(spacing: 6) {
+            if isExpanded && mapping.showsUsageHint {
+                HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "info.circle")
                     Text(NSLocalizedString("modifiers.usage.hint", comment: ""))
-                    Spacer()
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                     Button(action: onDismissUsageHint) {
                         Image(systemName: "xmark")
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(NSLocalizedString("modifiers.usage.dismiss", comment: ""))
                 }
-                .font(.system(size: 11))
+                .font(RuleCardTypography.body)
                 .foregroundColor(.secondary)
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(Color(NSColor.controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    isExpanded ? Color.accentColor.opacity(0.3) : Color.primary.opacity(isHovered ? 0.16 : 0.08),
+                    lineWidth: 1
+                )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture(perform: toggleDetails)
+        .onHover { isHovered = $0 }
+        .contextMenu {
+            Button(action: toggleDetails) {
+                Label(NSLocalizedString(isExpanded ? "rules.details.collapse" : "rules.edit", comment: ""), systemImage: "slider.horizontal.3")
+            }
+            Divider()
+            Button(role: .destructive, action: onDelete) {
+                Label(NSLocalizedString("rules.delete", comment: ""), systemImage: "trash")
+            }
+        }
     }
 
-    private var noteText: String {
-        mapping.note.isEmpty ? NSLocalizedString("rules.note.placeholder", comment: "") : mapping.note
+    // 摘要与辅助信息共用等宽的源键/目标键两列，箭头固定占 16pt。
+    // 列宽只由卡片宽度决定，按键名称、备注及黑名单内容不会改变列的位置。
+    private func alignedColumns<Source: View, Target: View>(
+        showsArrow: Bool,
+        @ViewBuilder source: () -> Source,
+        @ViewBuilder target: () -> Target
+    ) -> some View {
+        HStack(spacing: 10) {
+            source()
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .opacity(showsArrow ? 1 : 0)
+                .frame(width: 16)
+            target()
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func shortcutLabel(_ title: String, isTarget: Bool) -> some View {
+        Text(title.trimmingCharacters(in: .whitespaces))
+            .font(RuleCardTypography.key)
+            .foregroundColor(isTarget ? .accentColor : .primary)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isTarget ? Color.accentColor.opacity(0.1) : Color.primary.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(isTarget ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+            .help(title)
+    }
+
+    private var ruleDetails: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(NSLocalizedString("rules.note", comment: ""))
+                        .font(RuleCardTypography.label)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Button(role: .destructive, action: onDelete) {
+                        Label(NSLocalizedString("rules.delete", comment: ""), systemImage: "trash")
+                            .font(RuleCardTypography.body)
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if isEditingNote {
+                    RuleNoteTextField(
+                        text: $editingNoteText,
+                        placeholder: NSLocalizedString("rules.note.placeholder", comment: ""),
+                        onCommit: onSaveNote,
+                        onCancel: onCancelNote
+                    )
+                    .frame(height: 22)
+                    .padding(.horizontal, 6)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(5)
+                } else {
+                    Button(action: onStartEditingNote) {
+                        Text(mapping.note.isEmpty ? NSLocalizedString("rules.note.placeholder", comment: "") : mapping.note)
+                            .font(RuleCardTypography.body)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            RuleAppFilterSection(
+                mode: $appFilterMode,
+                blacklist: mapping.appBlacklist,
+                whitelist: mapping.appWhitelist,
+                runningApps: runningApps,
+                onAddRunningApp: onAddRunningAppFilter,
+                onAddFromFinder: onAddAppFilterFromFinder,
+                onDelete: onRemoveAppFilter
+            )
+
+        }
+    }
+
+    private var appFilterSummary: String {
+        let isWhitelist = mapping.appFilterMode == .whitelist
+        let bundleIDs = mapping[appList: mapping.appFilterMode]
+        if isWhitelist && bundleIDs.isEmpty {
+            return NSLocalizedString("rules.allowed.none", comment: "")
+        }
+        return String(format: NSLocalizedString(isWhitelist ? "rules.allowed.count" : "rules.excluded.count", comment: ""), bundleIDs.count)
+    }
+
+    private func toggleDetails() {
+        if isExpanded && isEditingNote {
+            onSaveNote()
+        }
+        isExpanded.toggle()
     }
 }
 
@@ -561,7 +726,7 @@ struct RuleNoteTextField: NSViewRepresentable {
         textField.drawsBackground = false
         textField.focusRingType = .none
         textField.placeholderString = placeholder
-        textField.font = .systemFont(ofSize: 11)
+        textField.font = .systemFont(ofSize: RuleCardTypography.bodySize)
         textField.delegate = context.coordinator
         textField.target = context.coordinator
         textField.action = #selector(Coordinator.commitFromAction)
@@ -674,108 +839,161 @@ struct RuleNoteTextField: NSViewRepresentable {
     }
 }
 
-struct RuleAppBlacklistSection: View {
-    let bundleIds: [String]
+private enum RuleAppListLayout {
+    static let inset: CGFloat = 0
+    static let iconSize: CGFloat = 20
+    static let actionSize: CGFloat = 24
+    static let spacing: CGFloat = 6
+}
+
+struct RuleAppFilterSection: View {
+    @Binding var mode: AppFilterMode
+    let blacklist: [String]
+    let whitelist: [String]
     let runningApps: [RunningAppInfo]
-    let onAddRunningApp: (String) -> Void
-    let onAddFromFinder: () -> Void
-    let onDelete: (String) -> Void
+    let onAddRunningApp: (String, AppFilterMode) -> Void
+    let onAddFromFinder: (AppFilterMode) -> Void
+    let onDelete: (String, AppFilterMode) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 14) {
             Divider()
-
-            HStack(spacing: 8) {
-                Text(NSLocalizedString("app.blacklist", comment: ""))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.secondary)
-
-                if bundleIds.isEmpty {
-                    Text(NSLocalizedString("app.blacklist.empty", comment: ""))
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary.opacity(0.75))
+            Grid(alignment: .topLeading, horizontalSpacing: 22, verticalSpacing: 8) {
+                GridRow {
+                    listHeader(.blacklist, bundleIDs: blacklist)
+                    listHeader(.whitelist, bundleIDs: whitelist)
                 }
-
-                Spacer()
-
-                Menu {
-                    if runningApps.isEmpty {
-                        Text(NSLocalizedString("app.blacklist.no.running.apps", comment: ""))
-                    } else {
-                        ForEach(runningApps) { app in
-                            Button(action: {
-                                onAddRunningApp(app.bundleId)
-                            }) {
-                                Label(app.name, systemImage: bundleIds.contains(app.bundleId) ? "checkmark" : "app")
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Button(action: onAddFromFinder) {
-                        Label(NSLocalizedString("app.blacklist.add.finder", comment: ""), systemImage: "folder")
-                    }
-                } label: {
-                    Label(NSLocalizedString("app.blacklist.add", comment: ""), systemImage: "plus.circle")
-                        .font(.system(size: 10, weight: .medium))
+                GridRow {
+                    listDescription(.blacklist, bundleIDs: blacklist)
+                    listDescription(.whitelist, bundleIDs: whitelist)
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .foregroundColor(.accentColor)
+                if !blacklist.isEmpty || !whitelist.isEmpty {
+                    GridRow {
+                        appItems(.blacklist, bundleIDs: blacklist)
+                        appItems(.whitelist, bundleIDs: whitelist)
+                    }
+                }
             }
-
-            if !bundleIds.isEmpty {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 8)], alignment: .leading, spacing: 8) {
-                    ForEach(bundleIds, id: \.self) { bundleId in
-                        RuleAppBlacklistChip(bundleId: bundleId) {
-                            onDelete(bundleId)
-                        }
-                    }
-                }
+            .overlay {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: 1)
+                    .allowsHitTesting(false)
             }
         }
     }
+
+    private func listHeader(_ list: AppFilterMode, bundleIDs: [String]) -> some View {
+        HStack(spacing: RuleAppListLayout.spacing) {
+            Button {
+                mode = list
+            } label: {
+                HStack(spacing: RuleAppListLayout.spacing) {
+                    Image(systemName: mode == list ? "largecircle.fill.circle" : "circle")
+                        .frame(width: RuleAppListLayout.iconSize, height: RuleAppListLayout.actionSize)
+                    Text(NSLocalizedString(list == .blacklist ? "rules.list.blacklist" : "rules.list.whitelist", comment: ""))
+                }
+                .font(RuleCardTypography.label)
+                .foregroundColor(mode == list ? .accentColor : .secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(mode == list ? .isSelected : [])
+            Spacer(minLength: 4)
+            Menu {
+                ForEach(runningApps) { app in
+                    Button {
+                        onAddRunningApp(app.bundleId, list)
+                    } label: {
+                        Label(app.name, systemImage: bundleIDs.contains(app.bundleId) ? "checkmark" : "app")
+                    }
+                    .disabled(bundleIDs.contains(app.bundleId))
+                }
+                if runningApps.isEmpty {
+                    Text(NSLocalizedString("app.blacklist.no.running.apps", comment: ""))
+                }
+                Divider()
+                Button {
+                    onAddFromFinder(list)
+                } label: {
+                    Label(NSLocalizedString("app.blacklist.add.finder", comment: ""), systemImage: "folder")
+                }
+            } label: {
+                Image(systemName: "plus.circle")
+                    .font(RuleCardTypography.key)
+                    .frame(width: RuleAppListLayout.actionSize, height: RuleAppListLayout.actionSize)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .frame(width: RuleAppListLayout.actionSize, height: RuleAppListLayout.actionSize)
+            .help(NSLocalizedString(list == .blacklist ? "rules.list.blacklist.add" : "rules.list.whitelist.add", comment: ""))
+            .accessibilityLabel(NSLocalizedString(list == .blacklist ? "rules.list.blacklist.add" : "rules.list.whitelist.add", comment: ""))
+        }
+        .padding(.horizontal, RuleAppListLayout.inset)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func listDescription(_ list: AppFilterMode, bundleIDs: [String]) -> some View {
+        Text(NSLocalizedString(mode != list ? "rules.list.inactive" : (list == .blacklist ? "rules.list.blacklist.desc" : (bundleIDs.isEmpty ? "rules.list.whitelist.empty" : "rules.list.whitelist.desc")), comment: ""))
+            .font(RuleCardTypography.body)
+            .foregroundColor(mode == .whitelist && mode == list && bundleIDs.isEmpty ? .orange : .secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func appItems(_ list: AppFilterMode, bundleIDs: [String]) -> some View {
+        VStack(spacing: 4) {
+            if bundleIDs.isEmpty {
+                Color.clear.frame(height: 0)
+            }
+            ForEach(bundleIDs, id: \.self) { bundleID in
+                RuleAppFilterChip(bundleId: bundleID) {
+                    onDelete(bundleID, list)
+                }
+                .opacity(mode == list ? 1 : 0.55)
+            }
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
+    }
 }
 
-struct RuleAppBlacklistChip: View {
+struct RuleAppFilterChip: View {
     let bundleId: String
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: RuleAppListLayout.spacing) {
             if let icon = appIcon {
                 Image(nsImage: icon)
                     .resizable()
-                    .frame(width: 20, height: 20)
+                    .frame(width: RuleAppListLayout.iconSize, height: RuleAppListLayout.iconSize)
             } else {
                 Image(systemName: "app")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                    .frame(width: 20, height: 20)
+                    .frame(width: RuleAppListLayout.iconSize, height: RuleAppListLayout.iconSize)
             }
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(appName)
-                    .font(.system(size: 11, weight: .medium))
-                    .lineLimit(1)
-                Text(bundleId)
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
+            Text(appName)
+                .font(RuleCardTypography.body)
+                .lineLimit(1)
+                .help(bundleId)
 
             Spacer(minLength: 4)
 
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 11))
+                    .font(RuleCardTypography.body)
                     .foregroundColor(.secondary)
+                    .frame(width: RuleAppListLayout.actionSize, height: RuleAppListLayout.actionSize)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .padding(.horizontal, RuleAppListLayout.inset)
         .background(Color(NSColor.textBackgroundColor).opacity(0.7))
         .cornerRadius(6)
     }
@@ -795,28 +1013,6 @@ struct RuleAppBlacklistChip: View {
     private var appIcon: NSImage? {
         guard let appURL else { return nil }
         return NSWorkspace.shared.icon(forFile: appURL.path)
-    }
-}
-
-struct RuleKeyButton: View {
-    let title: String
-    let foregroundColor: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
-            .foregroundColor(foregroundColor)
-        }
-        .buttonStyle(.plain)
-        .help(NSLocalizedString("rules.edit.key", comment: ""))
     }
 }
 

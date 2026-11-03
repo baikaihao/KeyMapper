@@ -148,7 +148,7 @@ class MappingStore {
 
 extension MappingStore {
     struct Configuration: Codable {
-        static let currentVersion = "3.0"
+        static let currentVersion = "4.0"
 
         let version: String
         let mappings: [MappingRecord]
@@ -212,11 +212,13 @@ extension MappingStore {
         let isOn: Bool
         let note: String
         let appBlacklist: [String]
+        let appFilterMode: AppFilterMode
+        let appWhitelist: [String]
         let hasDismissedUsageHint: Bool
         let createdAt: Date?
 
         private enum CodingKeys: String, CodingKey {
-            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, hasDismissedUsageHint, createdAt
+            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, appFilterMode, appWhitelist, hasDismissedUsageHint, createdAt
         }
 
         init(from decoder: Decoder) throws {
@@ -231,6 +233,10 @@ extension MappingStore {
             isOn = try container.decode(Bool.self, forKey: .isOn)
             note = try container.decode(String.self, forKey: .note)
             appBlacklist = try container.decode([String].self, forKey: .appBlacklist)
+            appFilterMode = try container.decodeIfPresent(AppFilterMode.self, forKey: .appFilterMode) ?? .blacklist
+            appWhitelist = appFilterMode == .whitelist
+                ? try container.decode([String].self, forKey: .appWhitelist)
+                : try container.decodeIfPresent([String].self, forKey: .appWhitelist) ?? []
             hasDismissedUsageHint = try container.decodeIfPresent(Bool.self, forKey: .hasDismissedUsageHint) ?? false
             createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         }
@@ -246,6 +252,8 @@ extension MappingStore {
             isOn = mapping.isOn
             note = mapping.note
             appBlacklist = mapping.appBlacklist
+            appFilterMode = mapping.appFilterMode
+            appWhitelist = mapping.appWhitelist
             hasDismissedUsageHint = mapping.hasDismissedUsageHint
             createdAt = mapping.createdAt
         }
@@ -277,6 +285,7 @@ extension MappingStore {
         case invalidMappingValue(Int)
         case invalidMappingNote(Int)
         case invalidMappingBlacklist(Int)
+        case invalidMappingWhitelist(Int)
         case invalidGlobalBlacklist
         case invalidModifierMapping
         case invalidPauseHotkey
@@ -317,6 +326,8 @@ extension MappingStore {
                 )
             case .invalidModifierMapping:
                 return NSLocalizedString("modifiers.import.invalid", comment: "")
+            case .invalidMappingWhitelist(let index):
+                return String(format: NSLocalizedString("settings.import.error.invalid.rule.whitelist", comment: ""), index)
             case .invalidGlobalBlacklist:
                 return NSLocalizedString("settings.import.error.invalid.blacklist", comment: "")
             case .invalidPauseHotkey:
@@ -369,7 +380,7 @@ extension MappingStore {
             throw ConfigurationError.invalidFormat
         }
 
-        guard ["2.0", Configuration.currentVersion].contains(configuration.version) else {
+        guard ["2.0", "3.0", Configuration.currentVersion].contains(configuration.version) else {
             throw ConfigurationError.unsupportedVersion(configuration.version)
         }
         guard configuration.mappings.count <= maximumMappingCount else {
@@ -410,6 +421,11 @@ extension MappingStore {
                 error: .invalidMappingBlacklist(displayIndex)
             )
 
+            let ruleWhitelist = try validatedBlacklist(
+                record.appWhitelist,
+                error: .invalidMappingWhitelist(displayIndex)
+            )
+
             mappings.append(
                 MyMap(
                     id: record.id,
@@ -422,6 +438,8 @@ extension MappingStore {
                     isOn: record.isOn,
                     note: record.note,
                     appBlacklist: ruleBlacklist,
+                    appFilterMode: record.appFilterMode,
+                    appWhitelist: ruleWhitelist,
                     hasDismissedUsageHint: record.hasDismissedUsageHint,
                     createdAt: record.createdAt
                 )
@@ -520,6 +538,7 @@ extension MappingStore {
                 throw ConfigurationError.invalidModifierMapping
             }
             _ = try validatedBlacklist(mapping.appBlacklist, error: .invalidModifierMapping)
+            _ = try validatedBlacklist(mapping.appWhitelist, error: .invalidModifierMapping)
         }
     }
 

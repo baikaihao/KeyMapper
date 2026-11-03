@@ -24,6 +24,7 @@ struct SettingsView: View {
     @State private var isImportInProgress = false
     // 失效旧回调，避免离开设置页后继续覆盖用户的新修改。
     @State private var activeImportID: UUID?
+    @State private var showBackupDetails = false
 
     var body: some View {
         ScrollView {
@@ -266,93 +267,114 @@ struct SettingsView: View {
                         }
 
                         Divider()
-                            .padding(.leading, 0)
 
-                        SettingsRow(
-                            title: NSLocalizedString("settings.max.backups", comment: ""),
-                            description: NSLocalizedString("settings.max.backups.desc", comment: "")
-                        ) {
-                            Picker("", selection: $backupManager.maxBackupCount) {
-                                ForEach(1...20, id: \.self) { count in
-                                    Text("\(count)").tag(count)
-                                }
+                        Button {
+                            showBackupDetails.toggle()
+                        } label: {
+                            HStack {
+                                Text(NSLocalizedString("settings.backup.details", comment: ""))
+                                    .font(.system(size: 13, weight: .medium))
+                                Spacer()
+                                Image(systemName: showBackupDetails ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.secondary)
                             }
-                            .frame(width: 80)
+                            .frame(maxWidth: .infinity, minHeight: 20)
+                            .padding(12)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(NSLocalizedString(showBackupDetails ? "settings.backup.details.hide" : "settings.backup.details.show", comment: ""))
 
-                        Divider()
-                            .padding(.leading, 0)
+                        if showBackupDetails {
+                            Divider()
 
-                        SettingsRow(
-                            title: NSLocalizedString("settings.backup.path", comment: ""),
-                            description: backupManager.backupPath
-                        ) {
-                            HStack(spacing: 8) {
-                                // 在 Finder 中打开备份文件夹
-                                Button(action: {
-                                    backupManager.openBackupFolder()
-                                }) {
-                                    Image(systemName: "folder")
-                                        .font(.system(size: 11))
-                                }
-                                .buttonStyle(.bordered)
-                                .help(NSLocalizedString("settings.open.folder", comment: ""))
-
-                                // 选择新的备份文件夹
-                                Button(action: {
-                                    if let newPath = backupManager.selectBackupFolder() {
-                                        backupManager.backupPath = newPath
+                            SettingsRow(
+                                title: NSLocalizedString("settings.max.backups", comment: ""),
+                                description: NSLocalizedString("settings.max.backups.desc", comment: "")
+                            ) {
+                                Picker("", selection: $backupManager.maxBackupCount) {
+                                    ForEach(1...20, id: \.self) { count in
+                                        Text("\(count)").tag(count)
                                     }
-                                }) {
-                                    Text(NSLocalizedString("settings.select", comment: ""))
-                                        .font(.system(size: 11))
                                 }
-                                .buttonStyle(.bordered)
+                                .frame(width: 80)
                             }
-                        }
 
-                        Divider()
-                            .padding(.leading, 0)
-
-                        SettingsRow(
-                            title: NSLocalizedString("settings.last.backup", comment: ""),
-                            description: backupManager.lastBackupDate != nil
-                                ? backupManager.lastBackupDate!.formattedMedium
-                                : NSLocalizedString("settings.never", comment: "")
-                        ) {
-                            Button(action: {
-                                backupManager.performBackup()
-                            }) {
-                                HStack(spacing: 6) {
-                                    if backupManager.isBackupInProgress {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    } else {
-                                        Image(systemName: "externaldrive.badge.timemachine")
-                                    }
-                                    Text(NSLocalizedString(
-                                        backupManager.isBackupInProgress
-                                            ? "settings.backup.in.progress"
-                                            : "settings.backup.now",
-                                        comment: ""
-                                    ))
-                                }
-                                .font(.system(size: 11))
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(backupManager.isBackupInProgress)
-                        }
-
-                        if backupManager.autoBackupEnabled, let nextBackupDate = backupManager.nextBackupDate {
                             Divider()
                                 .padding(.leading, 0)
 
                             SettingsRow(
-                                title: NSLocalizedString("settings.next.backup", comment: ""),
-                                description: nextBackupDate.formattedMedium
+                                title: NSLocalizedString("settings.backup.path", comment: ""),
+                                description: backupManager.backupPath
                             ) {
-                                Image(systemName: "calendar.badge.clock")
-                                    .foregroundColor(.secondary)
+                                HStack(spacing: 8) {
+                                    // 在 Finder 中打开备份文件夹
+                                    Button(action: {
+                                        backupManager.openBackupFolder()
+                                    }) {
+                                        Image(systemName: "folder")
+                                            .font(.system(size: 11))
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .help(NSLocalizedString("settings.open.folder", comment: ""))
+
+                                    // 选择新的备份文件夹
+                                    Button(action: {
+                                        if let newPath = backupManager.selectBackupFolder() {
+                                            backupManager.backupPath = newPath
+                                        }
+                                    }) {
+                                        Text(NSLocalizedString("settings.select", comment: ""))
+                                            .font(.system(size: 11))
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+
+                            Divider()
+                                .padding(.leading, 0)
+
+                            SettingsRow(
+                                title: NSLocalizedString("settings.last.backup", comment: ""),
+                                description: backupManager.lastBackupDate != nil
+                                    ? backupManager.lastBackupDate!.formattedMedium
+                                    : NSLocalizedString("settings.never", comment: "")
+                            ) {
+                                Button(action: {
+                                    backupManager.performBackup()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        if backupManager.isBackupInProgress {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                        } else {
+                                            Image(systemName: "externaldrive.badge.timemachine")
+                                        }
+                                        Text(NSLocalizedString(
+                                            backupManager.isBackupInProgress
+                                                ? "settings.backup.in.progress"
+                                                : "settings.backup.now",
+                                            comment: ""
+                                        ))
+                                    }
+                                    .font(.system(size: 11))
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(backupManager.isBackupInProgress)
+                            }
+
+                            if backupManager.autoBackupEnabled, let nextBackupDate = backupManager.nextBackupDate {
+                                Divider()
+                                    .padding(.leading, 0)
+
+                                SettingsRow(
+                                    title: NSLocalizedString("settings.next.backup", comment: ""),
+                                    description: nextBackupDate.formattedMedium
+                                ) {
+                                    Image(systemName: "calendar.badge.clock")
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
 

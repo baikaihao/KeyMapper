@@ -303,7 +303,7 @@ class MyEngine: ObservableObject {
         guard !isPaused, !isRecording, !modifierSessionSuspended,
               bundleID == nil || bundleID != myBundleId else { return [] }
         return (list + modifierMappings.map(\.rule)).filter {
-            $0.isOn && $0.sourceModifier != nil && !isRuleBlacklisted($0, for: bundleID)
+            $0.isOn && $0.sourceModifier != nil && isRuleAllowed($0, for: bundleID)
         }
     }
 
@@ -347,6 +347,7 @@ class MyEngine: ObservableObject {
 
     private func refreshModifierOutput(proxy: CGEventTapProxy? = nil) {
         guard tap != nil || eventPoster != nil, !isApplyingConfiguration else { return }
+        cancelUnavailableMappings(proxy: proxy)
         transitionModifiers(to: desiredModifierCodes, proxy: proxy)
     }
 
@@ -376,6 +377,7 @@ class MyEngine: ObservableObject {
     }
 
     private func updateModifierActionContext(proxy: CGEventTapProxy? = nil) {
+        cancelUnavailableMappings(proxy: proxy)
         let bundleID = frontmostBundleID()
         guard bundleID != modifierActionBundleID else { return }
         cancelModifierSourceMappings(proxy: proxy)
@@ -744,7 +746,7 @@ class MyEngine: ObservableObject {
                 && $0.fCode == keyCode
                 && ($0.fFlags & ModifierKey.allMask) == modifiers
                 && matchesModifierSides($0.fModifierSides, flags: modifiers)
-                && !isRuleBlacklisted($0, for: frontBundleId)
+                && isRuleAllowed($0, for: frontBundleId)
         }
 
         if matches.count > 1 {
@@ -821,9 +823,34 @@ class MyEngine: ObservableObject {
         return true
     }
 
-    private func isRuleBlacklisted(_ mapping: MyMap, for bundleId: String?) -> Bool {
-        guard let bundleId else { return false }
-        return blacklist.contains(bundleId) || mapping.appBlacklist.contains(bundleId)
+    private func isRuleAllowed(_ mapping: MyMap, for bundleId: String?) -> Bool {
+        if let bundleId, blacklist.contains(bundleId) { return false }
+        return mapping.allowsApplication(bundleId)
+    }
+
+    // 应用范围变化后释放已发送的目标键，吞掉仍被按住的源键后续重复和松开事件。
+    private func cancelUnavailableMappings(proxy: CGEventTapProxy? = nil) {
+        guard !activeSingleMappings.isEmpty || multiMappingState != nil else { return }
+        let bundleID = frontmostBundleID()
+        let currentRules = list + modifierMappings.map(\.rule)
+        func isAvailable(_ mapping: MyMap) -> Bool {
+            guard let current = currentRules.first(where: { $0.id == mapping.id }) else { return false }
+            return current.isOn && isRuleAllowed(current, for: bundleID)
+        }
+        for (key, active) in Array(activeSingleMappings) where !isAvailable(active.mapping) {
+            if active.mapping.targetModifier == nil {
+                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            }
+            activeSingleMappings.removeValue(forKey: key)
+            if active.mapping.sourceModifier == nil { suppressedKeyUps.insert(key) }
+        }
+        if let pending = multiMappingState,
+           pending.matches.contains(where: { !isAvailable($0) }) {
+            if PhysicalModifierKey.modifier(for: pending.keyCode) == nil { suppressedKeyUps.insert(pending.keyCode) }
+            RadialWheelManager.shared.hide()
+            multiMappingState = nil
+            isWheelShowing = false
+        }
     }
 
     func addGlobalBlacklistApp(_ bundleId: String) {

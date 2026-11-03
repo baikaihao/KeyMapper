@@ -104,7 +104,9 @@ In **Mapping Rules**, use the existing recording fields: press and release a mod
 
 Shortcut rules take priority and match the original physical keys. Other keyboard and mouse events carry the remapped modifiers. The pause hotkey always uses physical keys, so it remains available after a swap. Caps Lock and Fn are not remapping targets in this version.
 
-Exports and backups use format 3.0, including modifier rules. Format 2.0 can still be imported; importing it clears modifier rules. Test the full press/hold/release sequence with your remote desktop client before relying on it.
+Expand a rule to manage its **Blacklist** on the left and **Whitelist** on the right. Select a column heading to activate either blacklist or whitelist mode. Only the selected mode applies; both app lists are saved. An empty whitelist disables the rule. Adding an app activates its column. The global blacklist still takes priority. Click either keycap to edit it directly; click the card background to expand or collapse details.
+
+Exports and backups use format 4.0, including per-rule application scopes and modifier rules. Formats 2.0 and 3.0 can still be imported with their existing blacklist behavior; importing format 2.0 without modifier rules clears modifier rules. Older app versions cannot import format 4.0. Test the full press/hold/release sequence with your remote desktop client before relying on it.
 
 ### 🛠 Technical Details
 
@@ -198,7 +200,9 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 
 快捷键规则优先匹配原始物理按键，其余键盘和鼠标事件携带映射后的修饰键。暂停热键始终按物理键触发，互换后仍可使用。本版本不提供 Caps Lock 或 Fn 的映射。
 
-导出与备份使用 3.0 格式并包含修饰键规则；仍可导入 2.0 格式，导入旧格式会清空修饰键规则。远程桌面请先在实际客户端验证按下、持续按住和松开的完整行为。
+展开规则后，左侧管理 **黑名单**，右侧管理 **白名单**，点击栏标题选择黑名单或白名单模式，只有所选模式生效，两份应用列表都会保留。白名单为空时规则不生效；添加应用会启用对应栏。全局黑名单仍然优先。直接点击键帽即可编辑按键，点击卡片背景可展开或收起详情。
+
+导出与备份使用 4.0 格式，包含单条规则的应用生效范围和修饰键规则；仍可导入 2.0、3.0 格式并保留原有黑名单行为。导入不含修饰键规则的 2.0 格式会清空修饰键规则。旧版应用无法导入 4.0 格式。远程桌面请先在实际客户端验证按下、持续按住和松开的完整行为。
 
 ### 🛠 技术细节
 

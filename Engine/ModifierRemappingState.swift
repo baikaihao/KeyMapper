@@ -23,7 +23,7 @@ struct ModifierRemappingState {
         }
         return grouped.compactMap { source, matches in
             guard matches.count == 1, let rule = matches.first, let target = rule.targetModifier else { return nil }
-            return ModifierMapping(id: rule.id, source: source, target: target, note: rule.note, appBlacklist: rule.appBlacklist)
+            return ModifierMapping(id: rule.id, source: source, target: target, note: rule.note, appBlacklist: rule.appBlacklist, appFilterMode: rule.appFilterMode, appWhitelist: rule.appWhitelist)
         }
     }
 
@@ -39,8 +39,8 @@ struct ModifierRemappingState {
                   let rule = rules.first(where: {
                       $0.isOn && $0.source == physical.modifier
                   }) else { return code }
-            // 无 bundle ID 的前台应用同样可以映射；黑名单仅匹配已知 ID。
-            if let bundleID, rule.appBlacklist.contains(bundleID) { return code }
+            // 只应用当前选中的名单模式；白名单为空时不允许任何应用。
+            guard ApplicationFilter.allows(bundleID, mode: rule.appFilterMode, blacklist: rule.appBlacklist, whitelist: rule.appWhitelist) else { return code }
             return PhysicalModifierKey.keyCode(for: rule.target, side: physical.side)
         })
     }

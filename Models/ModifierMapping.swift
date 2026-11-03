@@ -50,6 +50,8 @@ struct ModifierMapping: Identifiable, Codable, Equatable {
     var isOn = true
     var note = ""
     var appBlacklist: [String] = []
+    var appFilterMode: AppFilterMode = .blacklist
+    var appWhitelist: [String] = []
     var createdAt: Date? = Date()
 
     static func modifier(in selection: (UInt16, UInt64)) -> ModifierKey? {
@@ -62,14 +64,14 @@ struct ModifierMapping: Identifiable, Codable, Equatable {
         MyMap(
             id: id, fCode: PhysicalModifierKey.keyCode(for: source, side: .left), fFlags: 0,
             tCode: PhysicalModifierKey.keyCode(for: target, side: .left), tFlags: 0,
-            isOn: isOn, note: note, appBlacklist: appBlacklist, createdAt: createdAt
+            isOn: isOn, note: note, appBlacklist: appBlacklist, appFilterMode: appFilterMode, appWhitelist: appWhitelist, createdAt: createdAt
         )
     }
 }
 
 extension ModifierMapping {
     private enum CodingKeys: String, CodingKey {
-        case id, source, target, isOn, note, appBlacklist, createdAt
+        case id, source, target, isOn, note, appBlacklist, appFilterMode, appWhitelist, createdAt
     }
 
     init(from decoder: Decoder) throws {
@@ -80,6 +82,10 @@ extension ModifierMapping {
         isOn = try container.decode(Bool.self, forKey: .isOn)
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         appBlacklist = try container.decode([String].self, forKey: .appBlacklist)
+        appFilterMode = try container.decodeIfPresent(AppFilterMode.self, forKey: .appFilterMode) ?? .blacklist
+        appWhitelist = appFilterMode == .whitelist
+            ? try container.decode([String].self, forKey: .appWhitelist)
+            : try container.decodeIfPresent([String].self, forKey: .appWhitelist) ?? []
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
     }
 }

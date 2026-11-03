@@ -219,13 +219,13 @@ class BackupManager: ObservableObject {
         enqueueBackup(isAutomatic: false, completion: completion)
     }
 
-    private struct BackupRequest {
+    struct BackupRequest {
         let configuration: MappingStore.Configuration
         let directory: URL
         let maximumBackupCount: Int
     }
 
-    private struct BackupSuccess {
+    struct BackupSuccess {
         let date: Date
         let url: URL
     }
@@ -316,7 +316,7 @@ class BackupManager: ObservableObject {
         isBackupInProgress = pendingBackupCount > 0
     }
 
-    private static func writeBackup(_ request: BackupRequest) throws -> BackupSuccess {
+    static func writeBackup(_ request: BackupRequest) throws -> BackupSuccess {
         let data = try MappingStore.encodeValidatedConfiguration(request.configuration)
 
         try FileManager.default.createDirectory(
@@ -330,10 +330,12 @@ class BackupManager: ObservableObject {
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.dateFormat = "yyyyMMdd_HHmmss_SSS"
         let timestamp = dateFormatter.string(from: backupDate)
-        let uniqueSuffix = UUID().uuidString.prefix(8)
+        let uniqueSuffix = UUID().uuidString
         let fileName = "keymapper_backup_\(timestamp)_\(uniqueSuffix).json"
         let backupURL = request.directory.appendingPathComponent(fileName)
-        try data.write(to: backupURL, options: [.atomic, .withoutOverwriting])
+        // Foundation 不支持同时使用 atomic 和 withoutOverwriting，会直接触发致命错误。
+        // 每份备份使用完整 UUID 区分，写入仍保持原子性。
+        try data.write(to: backupURL, options: .atomic)
 
         do {
             try cleanupOldBackups(

@@ -48,6 +48,105 @@ struct ModifierMappingTests {
         #expect(saved.createdAt == nil)
     }
 
+    @Test(arguments: ["2.0", "3.0"])
+    func legacyConfigurationsKeepBlacklistBehavior(version: String) throws {
+        var json = try #require(JSONSerialization.jsonObject(with: configurationData()) as? [String: Any])
+        json["version"] = version
+        for key in ["mappings", "modifierMappings"] {
+            var records = try #require(json[key] as? [[String: Any]])
+            for index in records.indices {
+                records[index].removeValue(forKey: "appFilterMode")
+                records[index].removeValue(forKey: "appWhitelist")
+            }
+            json[key] = records
+        }
+        let decoded = try MappingStore.decodeAndValidateConfiguration(from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded.mappings.allSatisfy { $0.appFilterMode == .blacklist && $0.appWhitelist.isEmpty })
+        #expect(!decoded.mappings[0].allowsApplication("com.apple.Terminal"))
+        #expect(decoded.modifierMappings.allSatisfy { $0.appFilterMode == .blacklist && $0.appWhitelist.isEmpty })
+        let saved = try JSONDecoder().decode(MyMap.self, from: JSONSerialization.data(withJSONObject: try #require((json["mappings"] as? [[String: Any]])?.first)))
+        #expect(saved.appFilterMode == .blacklist)
+    }
+
+    @Test
+    func applicationScopesSurviveConfigurationAndModifierConversion() throws {
+        let mapping = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0,
+                            appBlacklist: ["excluded.app"], appFilterMode: .whitelist, appWhitelist: ["allowed.app"])
+        let modifier = ModifierMapping(source: .control, target: .command,
+                                       appBlacklist: ["excluded.app"], appFilterMode: .whitelist, appWhitelist: ["allowed.app"])
+        let data = try MappingStore.encodeValidatedConfiguration(MappingStore.makeConfiguration(
+            mappings: [mapping], modifierMappings: [modifier], blacklist: [], pauseHotkey: MappingStore.defaultPauseHotkey
+        ))
+        let decoded = try MappingStore.decodeAndValidateConfiguration(from: data)
+        #expect(decoded.mappings[0].appFilterMode == .whitelist)
+        #expect(decoded.mappings[0].appWhitelist == ["allowed.app"])
+        #expect(decoded.mappings[0].appBlacklist == ["excluded.app"])
+        #expect(decoded.modifierMappings == [modifier])
+        #expect(modifier.rule.appWhitelist == ["allowed.app"])
+        let continuous = try #require(ModifierRemappingState.continuousRules(from: [modifier.rule]).first)
+        #expect(continuous.appFilterMode == .whitelist)
+        #expect(continuous.appWhitelist == modifier.appWhitelist)
+    }
+
+    @Test(arguments: ["allowed.app", "other.app", nil] as [String?])
+    func whitelistMatchesOnlyKnownSelectedApplications(app: String?) {
+        let mapping = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0,
+                            appFilterMode: .whitelist, appWhitelist: ["allowed.app"])
+        #expect(mapping.allowsApplication(app) == (app == "allowed.app"))
+        let empty = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0, appFilterMode: .whitelist)
+        #expect(!empty.allowsApplication(app))
+    }
+
+    @Test
+    func bothApplicationListsAreSavedButOnlyOneIsActive() {
+        var mapping = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0)
+        mapping[appList: .blacklist].append("excluded.app")
+        mapping[appList: .whitelist].append("allowed.app")
+        #expect(mapping.appBlacklist == ["excluded.app"])
+        #expect(mapping.appWhitelist == ["allowed.app"])
+        #expect(mapping.allowsApplication("other.app"))
+        #expect(!mapping.allowsApplication("excluded.app"))
+        mapping.appFilterMode = .whitelist
+        #expect(mapping.allowsApplication("allowed.app"))
+        #expect(!mapping.allowsApplication("other.app"))
+        #expect(!mapping.allowsApplication(nil))
+        mapping[appList: .whitelist].removeAll()
+        #expect(!mapping.allowsApplication("allowed.app"))
+        #expect(mapping.appBlacklist == ["excluded.app"])
+    }
+
+    @Test(arguments: ["allowed.app", "blocked.app", "other.app", nil] as [String?], AppFilterMode.allCases)
+    func selectedApplicationListIsExclusive(app: String?, mode: AppFilterMode) {
+        let mapping = MyMap(fCode: 59, fFlags: 0, tCode: 55, tFlags: 0,
+                            appBlacklist: ["blocked.app"], appFilterMode: mode,
+                            appWhitelist: ["allowed.app", "blocked.app"])
+        let allowed = mode == .blacklist ? app != "blocked.app" : app == "allowed.app" || app == "blocked.app"
+        #expect(mapping.allowsApplication(app) == allowed)
+        let rules = ModifierRemappingState.continuousRules(from: [mapping])
+        #expect(ModifierRemappingState.mappedCodes([59], rules: rules, bundleID: app, enabled: true) == (allowed ? [55] : [59]))
+    }
+
+    @Test(arguments: [false, true], 0..<7)
+    func invalidApplicationScopesAreRejected(modifier: Bool, scenario: Int) throws {
+        var json = try #require(JSONSerialization.jsonObject(with: configurationData()) as? [String: Any])
+        let key = modifier ? "modifierMappings" : "mappings"
+        var records = try #require(json[key] as? [[String: Any]])
+        records[0]["appFilterMode"] = "whitelist"
+        switch scenario {
+        case 0: records[0]["appWhitelist"] = [" allowed.app"]
+        case 1: records[0]["appWhitelist"] = ["allowed.app", "allowed.app"]
+        case 2: records[0]["appWhitelist"] = Array(repeating: "app", count: 2001)
+        case 3: records[0]["appFilterMode"] = "unknown"
+        case 4: records[0].removeValue(forKey: "appWhitelist")
+        case 5: records[0]["appWhitelist"] = [""]
+        default: records[0]["appWhitelist"] = [String(repeating: "a", count: 256)]
+        }
+        json[key] = records
+        #expect(throws: MappingStore.ConfigurationError.self) {
+            try MappingStore.decodeAndValidateConfiguration(from: JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
     private let swap = [
         ModifierMapping(source: .control, target: .command),
         ModifierMapping(source: .command, target: .control)
@@ -82,6 +181,114 @@ struct ModifierMappingTests {
         if let returned = engine.handleEvent(proxy: nil, type: type, event: event) {
             log.capture(returned.takeUnretainedValue())
         }
+    }
+
+    @Test(arguments: [false, true])
+    func globalBlacklistOverridesRuleWhitelist(modifierSource: Bool) throws {
+        let log = EventLog()
+        let rule = MyMap(fCode: modifierSource ? 59 : 0, fFlags: 0, tCode: 1, tFlags: 0,
+                         appFilterMode: .whitelist, appWhitelist: ["test.target"])
+        let engine = engine(rules: [rule], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        engine.blacklist = ["test.target"]
+        try send(modifierSource ? 59 : 0, type: modifierSource ? .flagsChanged : .keyDown,
+                 flags: modifierSource ? ModifierKey.control.flagValue : 0, to: engine, log: log)
+        #expect(!log.events.contains { $0.code == 1 })
+    }
+
+    @Test(arguments: [false, true], AppFilterMode.allCases)
+    func onlySelectedApplicationListAppliesToEvents(modifierSource: Bool, mode: AppFilterMode) throws {
+        let log = EventLog()
+        let source: UInt16 = modifierSource ? 59 : 0
+        let target: UInt16 = modifierSource ? 55 : 1
+        let rule = MyMap(fCode: source, fFlags: 0, tCode: target, tFlags: 0,
+                         appBlacklist: ["test.target"], appFilterMode: mode, appWhitelist: ["test.target"])
+        let engine = engine(rules: [rule], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        try send(source, type: modifierSource ? .flagsChanged : .keyDown,
+                 flags: modifierSource ? ModifierKey.control.flagValue : 0, to: engine, log: log)
+        #expect(log.events.map(\.code) == [mode == .whitelist ? target : source])
+    }
+
+    @Test
+    func disjointWhitelistsChooseTheRuleForTheCurrentApp() throws {
+        let log = EventLog()
+        let engine = engine(rules: [
+            MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0, appFilterMode: .whitelist, appWhitelist: ["test.target"]),
+            MyMap(fCode: 0, fFlags: 0, tCode: 2, tFlags: 0, appFilterMode: .whitelist, appWhitelist: ["test.other"])
+        ], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        for app in ["test.target", "test.other", "test.neither"] {
+            log.frontmostApp = app
+            try send(0, type: .keyDown, flags: 0, to: engine, log: log)
+            try send(0, type: .keyUp, flags: 0, to: engine, log: log)
+        }
+        #expect(log.events.map(\.code) == [1, 1, 2, 2, 0, 0])
+    }
+
+    @Test
+    func leavingWhitelistCancelsPendingWheelWithoutExecutingAChoice() throws {
+        _ = NSApplication.shared
+        let log = EventLog()
+        let engine = engine(rules: [
+            MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0, appFilterMode: .whitelist, appWhitelist: ["test.target"]),
+            MyMap(fCode: 0, fFlags: 0, tCode: 2, tFlags: 0, appFilterMode: .whitelist, appWhitelist: ["test.target"])
+        ], log: log)
+        defer { engine.stop(); ModifierSideTracker.shared.reset() }
+        try send(0, type: .keyDown, flags: 0, to: engine, log: log)
+        #expect(RadialWheelManager.shared.getSelectedMapping() != nil)
+        log.frontmostApp = "test.other"
+        try send(0, type: .keyUp, flags: 0, to: engine, log: log)
+        #expect(RadialWheelManager.shared.getSelectedMapping() == nil)
+        #expect(log.events.isEmpty)
+    }
+
+    @Test
+    func leavingWhitelistReleasesTargetAndSuppressesHeldSource() throws {
+        let log = EventLog()
+        let rule = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: ModifierKey.command.flagValue,
+                         appFilterMode: .whitelist, appWhitelist: ["test.target"])
+        let engine = engine(rules: [rule], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        try send(0, type: .keyDown, flags: 0, to: engine, log: log)
+        log.frontmostApp = "test.other"
+        let repeated = try #require(CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true))
+        repeated.setIntegerValueField(.keyboardEventAutorepeat, value: 1)
+        #expect(engine.handleEvent(proxy: nil, type: .keyDown, event: repeated) == nil)
+        try send(0, type: .keyUp, flags: 0, to: engine, log: log)
+        #expect(log.events.filter { $0.code == 1 }.map(\.type) == [.keyDown, .keyUp])
+        #expect(!log.events.contains { $0.code == 0 })
+        #expect((log.events.last!.flags & ModifierKey.allMask) == 0)
+    }
+
+    @Test
+    func editingWhitelistReleasesHeldTargetImmediately() throws {
+        let log = EventLog()
+        let engine = engine(rules: [MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0,
+                                          appFilterMode: .whitelist, appWhitelist: ["test.target"])], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        try send(0, type: .keyDown, flags: 0, to: engine, log: log)
+        engine.list[0].appWhitelist = []
+        try send(0, type: .keyUp, flags: 0, to: engine, log: log)
+        #expect(log.events.map(\.code) == [1, 1])
+        #expect(log.events.map(\.type) == [.keyDown, .keyUp])
+    }
+
+    @Test
+    func heldModifierRestoresPhysicalKeysWhenLeavingWhitelist() throws {
+        let log = EventLog()
+        let engine = engine(rules: [MyMap(fCode: 59, fFlags: 0, tCode: 55, tFlags: 0,
+                                          appFilterMode: .whitelist, appWhitelist: ["test.target"])], log: log)
+        defer { ModifierSideTracker.shared.reset() }
+        try send(59, type: .flagsChanged, flags: ModifierKey.control.flagValue, to: engine, log: log)
+        log.frontmostApp = "test.other"
+        try send(8, type: .keyDown, flags: ModifierKey.control.flagValue, to: engine, log: log)
+        #expect(log.events.map(\.code) == [55, 55, 59, 8])
+        #expect((log.events.last!.flags & ModifierKey.allMask) == ModifierKey.control.flagValue)
+        log.frontmostApp = "test.target"
+        try send(8, type: .keyUp, flags: ModifierKey.control.flagValue, to: engine, log: log)
+        try send(59, type: .flagsChanged, flags: 0, to: engine, log: log)
+        #expect((log.events.last!.flags & ModifierKey.allMask) == 0)
     }
 
     @Test
@@ -443,12 +650,12 @@ struct ModifierMappingTests {
     }
 
     @Test
-    func versionThreeRoundTripIncludesBothRuleTypes() throws {
+    func versionFourRoundTripIncludesBothRuleTypes() throws {
         var rules = swap
         rules[0].appBlacklist = ["remote.app"]
         let data = try configurationData(rules: rules)
         let document = try JSONDecoder().decode(MappingStore.Configuration.self, from: data)
-        #expect(document.version == "3.0")
+        #expect(document.version == "4.0")
         let decoded = try MappingStore.decodeAndValidateConfiguration(from: data)
         #expect(decoded.modifierMappings == rules)
         #expect(decoded.mappings.count == MappingStore.defaultMappings().count)
