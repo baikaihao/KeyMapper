@@ -68,9 +68,13 @@ struct RulesView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 12)
 
-            // 规则列表
+            // 按可用宽度增加列数，窄窗口保留单列；每张卡片至少预留 440pt。
             ScrollView {
-                VStack(spacing: 8) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 440), spacing: 12, alignment: .top)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
                     ForEach(sortOrder.sorted(allRules)) { m in
                         RuleItemRow(
                             mapping: m,
@@ -125,11 +129,9 @@ struct RulesView: View {
                             }
                         )
                     }
-
-                    Color.clear
-                        .frame(height: 20)
                 }
                 .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
 
             Divider()
@@ -531,6 +533,7 @@ struct RuleItemRow: View {
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(NSColor.controlBackgroundColor))
