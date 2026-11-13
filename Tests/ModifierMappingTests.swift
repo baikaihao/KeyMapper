@@ -7,6 +7,15 @@ import Testing
 
 @Suite @MainActor
 struct ModifierMappingTests {
+    @Test(arguments: [
+        (UInt64(0), "`"),
+        (ModifierKey.shift.flagValue, "⇧ `"),
+        (ModifierKey.command.flagValue, "⌘ `"),
+    ])
+    func graveKeyDisplaysItsName(flags: UInt64, expected: String) {
+        #expect(MyMap.getName(50, flags).trimmingCharacters(in: .whitespaces) == expected)
+    }
+
     @Test
     func sortingKeepsCreationOrderAndEnabledGroupsStable() {
         let olderSaved = MyMap(fCode: 0, fFlags: 0, tCode: 1, tFlags: 0, isOn: false, createdAt: nil)

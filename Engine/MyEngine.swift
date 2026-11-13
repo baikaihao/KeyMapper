@@ -293,6 +293,16 @@ class MyEngine: ObservableObject {
         ModifierRemappingState.flags(for: modifierOutput.outputCodes, preserving: lastPhysicalFlags)
     }
 
+    private func applyModifierFlagsIfNeeded(to event: CGEvent) {
+        // 没有逻辑修饰键覆盖时保留原始 flags（包括设备侧别和系统元数据）。
+        // 即使赋相同的 flags，active tap 也可能把原生 IME 手势标记为已修改。
+        guard modifierOutput.outputCodes != ModifierSideTracker.shared.heldKeyCodes else { return }
+        let flags = outputFlags
+        if event.flags.rawValue != flags {
+            event.flags = CGEventFlags(rawValue: flags)
+        }
+    }
+
     private var mappedKeyFlags: UInt64 {
         // 目标快捷键使用明确指定的修饰键，不能继承源方向键/Fn 键的专用标志。
         ModifierRemappingState.flags(for: modifierOutput.outputCodes, preserving: 0)
@@ -469,10 +479,18 @@ class MyEngine: ObservableObject {
             let previouslyHeld = ModifierSideTracker.shared.heldKeyCodes
             ModifierSideTracker.shared.updateFlagsChanged(keyCode: code, flags: physicalFlags)
             handleModifierSource(proxy: proxy, keyCode: code, previouslyHeld: previouslyHeld, event: event)
-            let changes = modifierOutput.transition(to: desiredModifierCodes, preserving: physicalFlags)
+            let desiredCodes = desiredModifierCodes
+            if modifierOutput.outputCodes == previouslyHeld,
+               desiredCodes == ModifierSideTracker.shared.heldKeyCodes {
+                // 原生事件本身就完成这次状态变化：只记账，不吞掉、补发或改写。
+                // 暂停/黑名单/未命中规则也持续记录物理状态，供恢复映射时使用。
+                modifierOutput.synchronize(to: desiredCodes)
+                return Unmanaged.passUnretained(event)
+            }
+            let changes = modifierOutput.transition(to: desiredCodes, preserving: physicalFlags)
             if PhysicalModifierKey.modifier(for: code) != nil {
                 if changes.count == 1, changes[0].keyCode == code {
-                    event.flags = CGEventFlags(rawValue: outputFlags)
+                    applyModifierFlagsIfNeeded(to: event)
                     return Unmanaged.passUnretained(event)
                 }
                 postModifierChanges(changes, proxy: proxy)
@@ -480,7 +498,7 @@ class MyEngine: ObservableObject {
             }
             // Caps Lock / Fn 保持原事件，只同步其中携带的标准修饰键状态。
             postModifierChanges(changes, proxy: proxy)
-            event.flags = CGEventFlags(rawValue: outputFlags)
+            applyModifierFlagsIfNeeded(to: event)
             return Unmanaged.passUnretained(event)
         }
 
@@ -490,7 +508,7 @@ class MyEngine: ObservableObject {
             ModifierSideTracker.shared.synchronizeWithKeyboard()
         }
         refreshModifierOutput(proxy: proxy)
-        event.flags = CGEventFlags(rawValue: outputFlags)
+        applyModifierFlagsIfNeeded(to: event)
         guard type == .keyDown || type == .keyUp else { return Unmanaged.passUnretained(event) }
 
         if type == .keyUp, suppressedKeyUps.remove(code) != nil { return nil }
@@ -737,7 +755,7 @@ class MyEngine: ObservableObject {
             }
             multiMappingState = nil
             refreshModifierOutput(proxy: proxy)
-            originalEvent.flags = CGEventFlags(rawValue: outputFlags)
+            applyModifierFlagsIfNeeded(to: originalEvent)
         }
 
         let frontBundleId = frontmostBundleID()

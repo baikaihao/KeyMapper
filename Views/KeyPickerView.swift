@@ -43,6 +43,7 @@ struct KeyGridItem: Identifiable {
         ],
         // 符号键
         [
+            KeyGridItem(id: 50, name: "`"),
             KeyGridItem(id: 27, name: "-"), KeyGridItem(id: 24, name: "="),
             KeyGridItem(id: 33, name: "["), KeyGridItem(id: 30, name: "]"),
             KeyGridItem(id: 42, name: "\\"), KeyGridItem(id: 41, name: ";"),
