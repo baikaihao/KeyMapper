@@ -190,7 +190,7 @@
 "update.available.message" = "Version %@ is available. You have %@";
 "update.latest.title" = "You're Up to Date";
 "update.latest.message" = "You're using the latest version of KeyMapper";
-"update.error.title" = "Update Check Failed";
+"update.error.title" = "Update Failed";
 "update.download" = "Download Update";
 "update.error.invalid.url" = "Invalid URL";
 "update.error.invalid.response" = "Invalid response";
@@ -204,6 +204,25 @@
 "update.error.invalid.version" = "The version number could not be recognized. Check the releases page for the latest version.";
 "update.error.rate.limited" = "GitHub has temporarily limited update checks. Try again later or visit the releases page.";
 "update.error.http" = "The update server returned an error (HTTP %ld). Try again later or visit the releases page.";
+"settings.auto.download" = "Automatically Download Updates";
+"settings.auto.download.desc" = "Download and verify new versions automatically. Install when you click “Restart and Update”.";
+"update.downloading" = "Downloading Update…";
+"update.downloading.message" = "Downloading and verifying the update. You can continue using KeyMapper.";
+"update.ready.title" = "Update Ready to Install";
+"update.ready.message" = "Version %@ has been downloaded and verified. Restart to replace the app automatically. Your rules and settings will be preserved.";
+"update.ready.banner" = "The update is ready to install after restarting. Your rules and settings will be preserved.";
+"update.available.title.version" = "Version %@ is available";
+"update.restart" = "Restart and Update";
+"update.later" = "Later";
+"update.installing" = "Preparing to Restart and Install…";
+"update.install.error.unsupported" = "This release has no verifiable automatic update package. Download it from the releases page.";
+"update.install.error.download" = "The update could not be downloaded. Try again or download it from the releases page.";
+"update.install.error.checksum" = "The update package is incomplete or failed verification. Nothing was installed. Download it again.";
+"update.install.error.package" = "The update package has unexpected contents or a mismatched version. Nothing was installed. Visit the releases page.";
+"update.install.error.signature" = "The app signature could not be verified. Nothing was installed. Visit the releases page.";
+"update.install.error.system" = "This update does not support your macOS version or processor. Visit the releases page for details.";
+"update.install.error.location" = "The app cannot be replaced at its current location. Move KeyMapper to Applications and try again, or install manually.";
+"update.install.error.failed" = "Automatic installation did not finish. The previous version has been kept. Try again or install manually from the releases page.";
 
 /* Record Row */
 "waiting.for.input" = "Waiting for input...";

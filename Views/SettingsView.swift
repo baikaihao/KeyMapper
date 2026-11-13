@@ -75,6 +75,20 @@ struct SettingsView: View {
                             .toggleStyle(.switch)
                             .accessibilityLabel(NSLocalizedString("settings.auto.update", comment: ""))
                         }
+
+                        Divider()
+
+                        SettingsRow(
+                            title: NSLocalizedString("settings.auto.download", comment: ""),
+                            description: NSLocalizedString("settings.auto.download.desc", comment: "")
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: { updateService.automaticallyDownloadsUpdates },
+                                set: { updateService.setAutomaticDownloadsEnabled($0) }
+                            ))
+                            .toggleStyle(.switch)
+                            .accessibilityLabel(NSLocalizedString("settings.auto.download", comment: ""))
+                        }
                     }
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(10)

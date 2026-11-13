@@ -2,14 +2,29 @@ import Foundation
 import Combine
 import AppKit
 
-// 只解码检查更新需要的字段，避免可空的 Release 标题/正文导致整个检查失败。
-struct GitHubRelease: Codable, Sendable {
+// 标题和正文可以为 null；旧缓存中也可能没有附件字段。
+nonisolated struct GitHubRelease: Codable, Sendable {
     let tagName: String
     let htmlUrl: URL
+    let assets: [GitHubReleaseAsset]
 
     enum CodingKeys: String, CodingKey {
         case tagName = "tag_name"
         case htmlUrl = "html_url"
+        case assets
+    }
+
+    init(tagName: String, htmlUrl: URL, assets: [GitHubReleaseAsset] = []) {
+        self.tagName = tagName
+        self.htmlUrl = htmlUrl
+        self.assets = assets
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        tagName = try values.decode(String.self, forKey: .tagName)
+        htmlUrl = try values.decode(URL.self, forKey: .htmlUrl)
+        assets = try values.decodeIfPresent([GitHubReleaseAsset].self, forKey: .assets) ?? []
     }
 
     var releasePageURL: URL? {
@@ -17,10 +32,42 @@ struct GitHubRelease: Codable, Sendable {
               htmlUrl.path.hasPrefix("/baikaihao/KeyMapper/releases/tag/") else { return nil }
         return htmlUrl
     }
+
+    var installableAsset: GitHubReleaseAsset? {
+        assets.first { $0.isInstallable(for: tagName) }
+    }
+}
+
+nonisolated struct GitHubReleaseAsset: Codable, Sendable {
+    let name: String
+    let size: Int64
+    let downloadURL: URL
+    let digest: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, size, digest
+        case downloadURL = "browser_download_url"
+    }
+
+    var sha256: String? {
+        guard let digest, digest.hasPrefix("sha256:") else { return nil }
+        let hash = String(digest.dropFirst(7)).lowercased()
+        guard hash.count == 64, hash.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { return nil }
+        return hash
+    }
+
+    func isInstallable(for tag: String) -> Bool {
+        // 沿用现有的通用发布包；缺少校验值或只有源码包时仍提供手动下载。
+        ["KeyMapper.app.zip", "KeyMapper.zip"].contains(name) && size > 0 && size <= 256 * 1024 * 1024 &&
+        sha256 != nil && downloadURL.scheme == "https" && downloadURL.host == "github.com" &&
+        downloadURL.user == nil && downloadURL.password == nil && downloadURL.port == nil &&
+        downloadURL.query == nil && downloadURL.fragment == nil &&
+        downloadURL.path == "/baikaihao/KeyMapper/releases/download/\(tag)/\(name)"
+    }
 }
 
 // 支持 v 前缀、缺省补丁号、预发布版本和构建元数据；无效标签不能被误判为最新版。
-struct UpdateVersion: Comparable {
+nonisolated struct UpdateVersion: Comparable, Sendable {
     private let numbers: [Int]
     private let prerelease: [String]
 
@@ -81,6 +128,7 @@ final class UpdateService: ObservableObject {
 
     enum CheckResult {
         case available(GitHubRelease)
+        case ready(GitHubRelease)
         case upToDate
         case noReleases
         case failed(String)
@@ -88,6 +136,7 @@ final class UpdateService: ObservableObject {
         var title: String {
             switch self {
             case .available: return NSLocalizedString("update.available.title", comment: "")
+            case .ready: return NSLocalizedString("update.ready.title", comment: "")
             case .upToDate: return NSLocalizedString("update.latest.title", comment: "")
             case .noReleases: return NSLocalizedString("update.none.title", comment: "")
             case .failed: return NSLocalizedString("update.error.title", comment: "")
@@ -98,6 +147,8 @@ final class UpdateService: ObservableObject {
             switch self {
             case .available(let release):
                 return String(format: NSLocalizedString("update.available.message", comment: ""), release.tagName, currentVersion)
+            case .ready(let release):
+                return String(format: NSLocalizedString("update.ready.message", comment: ""), release.tagName)
             case .upToDate: return NSLocalizedString("update.latest.message", comment: "")
             case .noReleases: return NSLocalizedString("update.none.message", comment: "")
             case .failed(let message): return message
@@ -105,8 +156,25 @@ final class UpdateService: ObservableObject {
         }
     }
 
+    enum InstallationState {
+        case idle
+        case downloading
+        case ready(PreparedUpdate)
+        case installing
+        case failed(String)
+
+        var isBusy: Bool {
+            switch self {
+            case .downloading, .installing: return true
+            default: return false
+            }
+        }
+    }
+
     @Published private(set) var isChecking = false
     @Published private(set) var automaticallyChecksForUpdates: Bool
+    @Published private(set) var automaticallyDownloadsUpdates: Bool
+    @Published private(set) var installationState: InstallationState = .idle
     @Published private(set) var availableRelease: GitHubRelease?
     @Published private(set) var lastCheckDate: Date?
     // 由主窗口统一展示，切换页面或从菜单触发都不会丢失检查结果。
@@ -117,10 +185,16 @@ final class UpdateService: ObservableObject {
     private let session: URLSession
     private let defaults: UserDefaults
     private let now: () -> Date
+    private let installer: UpdateInstaller
+    private let prepareUpdate: @Sendable (GitHubRelease) async throws -> PreparedUpdate
+    private var downloadTask: Task<Void, Never>?
+    private var downloadIsAutomatic = false
     private var automaticCheckTask: Task<Void, Never>?
     private var automaticChecksStarted = false
     private static let automaticCheckInterval: TimeInterval = 24 * 60 * 60
     private static let automaticChecksKey = "setting_automatically_check_updates"
+    private static let automaticDownloadsKey = "setting_automatically_download_updates"
+    private static let pendingInstallationKey = "update_pending_installation"
     private static let lastCheckKey = "update_last_check_date"
     private static let cachedReleaseKey = "update_cached_release"
     private static let notifiedVersionKey = "update_last_notified_version"
@@ -128,13 +202,19 @@ final class UpdateService: ObservableObject {
     private let latestReleaseURL = URL(string: "https://api.github.com/repos/baikaihao/KeyMapper/releases/latest")!
 
     init(session: URLSession = .shared, currentVersion: String? = nil, bundle: Bundle = .main,
-         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
+         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
+         prepareUpdate: (@Sendable (GitHubRelease) async throws -> PreparedUpdate)? = nil) {
         self.session = session
         self.defaults = defaults
         self.now = now
         self.currentVersion = currentVersion ?? bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let installer = UpdateInstaller(session: session, installedAppURL: bundle.bundleURL,
+                                        currentVersion: self.currentVersion)
+        self.installer = installer
+        self.prepareUpdate = prepareUpdate ?? { try await installer.prepare($0) }
         buildNumber = bundle.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         automaticallyChecksForUpdates = defaults.object(forKey: Self.automaticChecksKey) as? Bool ?? true
+        automaticallyDownloadsUpdates = defaults.object(forKey: Self.automaticDownloadsKey) as? Bool ?? true
         lastCheckDate = defaults.object(forKey: Self.lastCheckKey) as? Date
         if let data = defaults.data(forKey: Self.cachedReleaseKey),
            let release = try? JSONDecoder().decode(GitHubRelease.self, from: data),
@@ -147,12 +227,31 @@ final class UpdateService: ObservableObject {
     func setAutomaticChecksEnabled(_ enabled: Bool) {
         automaticallyChecksForUpdates = enabled
         defaults.set(enabled, forKey: Self.automaticChecksKey)
+        if !enabled { cancelAutomaticDownload() }
+        if enabled, automaticallyDownloadsUpdates, let release = availableRelease {
+            downloadUpdate(release, automatically: true)
+        }
         scheduleAutomaticCheck()
+    }
+
+    func setAutomaticDownloadsEnabled(_ enabled: Bool) {
+        automaticallyDownloadsUpdates = enabled
+        defaults.set(enabled, forKey: Self.automaticDownloadsKey)
+        if enabled, automaticallyChecksForUpdates, let release = availableRelease {
+            downloadUpdate(release, automatically: true)
+        } else if !enabled {
+            cancelAutomaticDownload()
+        }
     }
 
     func startAutomaticChecks() {
         guard !automaticChecksStarted else { return }
         automaticChecksStarted = true
+        recoverPreviousInstallation()
+        if automaticallyChecksForUpdates, automaticallyDownloadsUpdates,
+           case .idle = installationState, let release = availableRelease {
+            downloadUpdate(release, automatically: true)
+        }
         scheduleAutomaticCheck()
     }
 
@@ -160,6 +259,13 @@ final class UpdateService: ObservableObject {
         automaticChecksStarted = false
         automaticCheckTask?.cancel()
         automaticCheckTask = nil
+        downloadTask?.cancel()
+        downloadTask = nil
+        if case .downloading = installationState { installationState = .idle }
+        if case .ready = installationState {
+            discardPreparedUpdate()
+            installationState = .idle
+        }
     }
 
     private var timeUntilAutomaticCheck: TimeInterval {
@@ -187,9 +293,14 @@ final class UpdateService: ObservableObject {
     // 仅由 AppDelegate 在主窗口可见且应用激活时调用，后台检查不抢焦点。
     func presentAutomaticUpdateIfNeeded() {
         guard automaticallyChecksForUpdates, result == nil, let release = availableRelease,
+              !installationState.isBusy,
               defaults.string(forKey: Self.notifiedVersionKey) != release.tagName else { return }
         defaults.set(release.tagName, forKey: Self.notifiedVersionKey)
-        result = .available(release)
+        if case .ready = installationState {
+            result = .ready(release)
+        } else {
+            result = .available(release)
+        }
     }
 
     func checkForUpdates(automatically: Bool = false) async {
@@ -197,6 +308,7 @@ final class UpdateService: ObservableObject {
             guard automaticallyChecksForUpdates, timeUntilAutomaticCheck == 0 else { return }
         }
         guard !isChecking else { return }
+        if case .installing = installationState { return }
         isChecking = true
         if !automatically { result = nil }
         // 记录尝试时间；断网或限流时不在后台反复请求，手动检查仍随时可用。
@@ -232,10 +344,17 @@ final class UpdateService: ObservableObject {
                   let current = UpdateVersion(currentVersion) else { throw UpdateError.invalidVersion }
             guard release.releasePageURL != nil else { throw UpdateError.invalidResponse }
             saveAvailableRelease(remote > current ? release : nil)
+            if remote > current, automaticallyDownloadsUpdates {
+                downloadUpdate(release, automatically: automatically)
+            }
             if !automatically {
                 if remote > current {
                     defaults.set(release.tagName, forKey: Self.notifiedVersionKey)
-                    result = .available(release)
+                    if case .ready = installationState {
+                        result = .ready(release)
+                    } else if !installationState.isBusy {
+                        result = .available(release)
+                    }
                 } else {
                     result = .upToDate
                 }
@@ -249,11 +368,128 @@ final class UpdateService: ObservableObject {
     }
 
     private func saveAvailableRelease(_ release: GitHubRelease?) {
+        if availableRelease?.tagName != release?.tagName {
+            downloadTask?.cancel()
+            downloadTask = nil
+            discardPreparedUpdate()
+            installationState = .idle
+        }
         availableRelease = release
         if let release, let data = try? JSONEncoder().encode(release) {
             defaults.set(data, forKey: Self.cachedReleaseKey)
         } else {
             defaults.removeObject(forKey: Self.cachedReleaseKey)
+        }
+    }
+
+    var updateActionTitle: String {
+        switch installationState {
+        case .downloading: return NSLocalizedString("update.downloading", comment: "")
+        case .ready: return NSLocalizedString("update.restart", comment: "")
+        case .installing: return NSLocalizedString("update.installing", comment: "")
+        default: return NSLocalizedString("update.download", comment: "")
+        }
+    }
+
+    func performUpdateAction() {
+        guard let release = availableRelease, !installationState.isBusy else { return }
+        if case .ready = installationState {
+            Task { await restartAndInstall() }
+        } else if release.installableAsset != nil {
+            downloadUpdate(release)
+        } else {
+            openReleasePage(for: release)
+        }
+    }
+
+    func downloadUpdate(_ release: GitHubRelease, automatically: Bool = false) {
+        if automatically, !automaticallyChecksForUpdates || !automaticallyDownloadsUpdates { return }
+        guard release.installableAsset != nil, !installationState.isBusy else { return }
+        if case .ready(let prepared) = installationState, prepared.release.tagName == release.tagName { return }
+        discardPreparedUpdate()
+        downloadIsAutomatic = automatically
+        installationState = .downloading
+        downloadTask = Task { [weak self, prepareUpdate] in
+            do {
+                let update = try await prepareUpdate(release)
+                guard let self, !Task.isCancelled else {
+                    await Self.removeUpdateDirectory(update.directory)
+                    return
+                }
+                self.installationState = .ready(update)
+                if !automatically { self.result = .ready(release) }
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.installationState = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func cancelAutomaticDownload() {
+        guard downloadIsAutomatic, case .downloading = installationState else { return }
+        downloadTask?.cancel()
+        downloadTask = nil
+        installationState = .idle
+    }
+
+    private func discardPreparedUpdate() {
+        if case .ready(let update) = installationState {
+            Task { await Self.removeUpdateDirectory(update.directory) }
+        }
+    }
+
+    @concurrent private static func removeUpdateDirectory(_ url: URL) async {
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    func restartAndInstall() async {
+        guard case .ready(let update) = installationState else { return }
+        installationState = .installing
+        do {
+            let plan = try await installer.stage(update)
+            do {
+                let process = try plan.process()
+                defaults.set(try JSONEncoder().encode(plan), forKey: Self.pendingInstallationKey)
+                // 先保证交接信息持久化，再退出；新版本启动后才清理原版本备份。
+                defaults.synchronize()
+                try process.run()
+            } catch {
+                defaults.removeObject(forKey: Self.pendingInstallationKey)
+                await Self.removeUpdateDirectory(plan.workspace)
+                throw error
+            }
+            NSApp.terminate(nil)
+        } catch {
+            // 启动安装助手失败时应用保持运行，用户仍可手动下载。
+            await Self.removeUpdateDirectory(update.directory)
+            installationState = .failed(error.localizedDescription)
+            result = .failed(error.localizedDescription)
+        }
+    }
+
+    private func recoverPreviousInstallation() {
+        guard let data = defaults.data(forKey: Self.pendingInstallationKey),
+              let plan = try? JSONDecoder().decode(UpdateInstallPlan.self, from: data) else { return }
+        // 只处理本应用在相邻目录创建的安装工作区，不能按偏好设置中的任意路径删除文件。
+        let destination = installer.installedAppURL.resolvingSymlinksInPath()
+        guard plan.destination == destination,
+              plan.workspace.resolvingSymlinksInPath() == plan.workspace,
+              plan.workspace.deletingLastPathComponent() == destination.deletingLastPathComponent(),
+              plan.workspace.lastPathComponent.hasPrefix(".KeyMapper-update-"),
+              UUID(uuidString: String(plan.workspace.lastPathComponent.dropFirst(".KeyMapper-update-".count))) != nil,
+              let status = try? String(contentsOf: plan.statusURL, encoding: .utf8) else { return }
+        defaults.removeObject(forKey: Self.pendingInstallationKey)
+        if status != "success" {
+            installationState = .failed(UpdateInstallationError.installationFailed.localizedDescription)
+        }
+        // 若回滚失败，必须保留 Previous.app，供用户恢复。
+        if status == "success" || !FileManager.default.fileExists(atPath: plan.backupApp.path) {
+            Task { await Self.removeUpdateDirectory(plan.workspace) }
+        }
+        if plan.downloadDirectory.deletingLastPathComponent().resolvingSymlinksInPath() == FileManager.default.temporaryDirectory.resolvingSymlinksInPath(),
+           plan.downloadDirectory.lastPathComponent.hasPrefix("KeyMapperUpdate-"),
+           UUID(uuidString: String(plan.downloadDirectory.lastPathComponent.dropFirst("KeyMapperUpdate-".count))) != nil {
+            Task { await Self.removeUpdateDirectory(plan.downloadDirectory) }
         }
     }
 

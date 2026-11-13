@@ -71,7 +71,8 @@ struct UpdateServiceTests {
     }
 
     private func service(body: String = "", status: Int = 200, offline: Bool = false, hold: Bool = false,
-                         now: @escaping () -> Date = Date.init) -> UpdateService {
+                         now: @escaping () -> Date = Date.init,
+                         prepareUpdate: (@Sendable (GitHubRelease) async throws -> PreparedUpdate)? = nil) -> UpdateService {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [UpdateURLProtocol.self]
         configuration.httpAdditionalHeaders = [
@@ -81,7 +82,7 @@ struct UpdateServiceTests {
             "X-Test-Hold": String(hold)
         ]
         return UpdateService(session: URLSession(configuration: configuration), currentVersion: "2.3.5",
-                             defaults: preferences.defaults, now: now)
+                             defaults: preferences.defaults, now: now, prepareUpdate: prepareUpdate)
     }
 
     @Test
@@ -327,5 +328,115 @@ struct UpdateServiceTests {
         clock.date.addTimeInterval(-60 * 60)
         await service.checkForUpdates(automatically: true)
         #expect(service.lastCheckDate == clock.date)
+    }
+
+    private var downloadableRelease: String {
+        """
+        {"tag_name":"v2.4.2","html_url":"https://github.com/baikaihao/KeyMapper/releases/tag/v2.4.2", "assets":[
+          {"name":"KeyMapper.app.zip","size":3,
+           "browser_download_url":"https://github.com/baikaihao/KeyMapper/releases/download/v2.4.2/KeyMapper.app.zip",
+           "digest":"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}
+        ]}
+        """
+    }
+
+    private func preparedDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("KeyMapperUpdateTest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        return directory
+    }
+
+    @Test
+    func automaticDownloadWaitsForVerificationThenOffersRestart() async throws {
+        let directory = try preparedDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = service(body: downloadableRelease, prepareUpdate: { release in
+            PreparedUpdate(release: release, directory: directory, appURL: directory.appendingPathComponent("KeyMapper.app"))
+        })
+        #expect(service.automaticallyDownloadsUpdates)
+        await service.checkForUpdates(automatically: true)
+        // 下载期间不弹“发现新版本”，准备好后只提示一次。
+        service.presentAutomaticUpdateIfNeeded()
+        #expect(service.result == nil)
+        while service.installationState.isBusy { await Task.yield() }
+        guard case .ready(let update) = service.installationState else {
+            Issue.record("Expected a verified update ready to install")
+            return
+        }
+        #expect(update.release.tagName == "v2.4.2")
+        service.presentAutomaticUpdateIfNeeded()
+        guard case .ready = service.result else {
+            Issue.record("Expected a restart prompt")
+            return
+        }
+        service.result = nil
+        service.presentAutomaticUpdateIfNeeded()
+        #expect(service.result == nil)
+        #expect(self.service().availableRelease?.installableAsset != nil)
+    }
+
+    @Test
+    func disablingAutomaticDownloadsStillAllowsManualDownload() async throws {
+        let directory = try preparedDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = service(body: downloadableRelease, prepareUpdate: { release in
+            PreparedUpdate(release: release, directory: directory, appURL: directory.appendingPathComponent("KeyMapper.app"))
+        })
+        service.setAutomaticDownloadsEnabled(false)
+        #expect(!self.service().automaticallyDownloadsUpdates)
+        await service.checkForUpdates()
+        guard case .available(let release) = service.result else {
+            Issue.record("Expected an offer to download manually")
+            return
+        }
+        guard case .idle = service.installationState else {
+            Issue.record("Automatic downloads must respect their switch")
+            return
+        }
+        service.downloadUpdate(release)
+        while service.installationState.isBusy { await Task.yield() }
+        guard case .ready = service.result else {
+            Issue.record("Manual downloads should offer restart after verification")
+            return
+        }
+    }
+
+    @Test
+    func verificationFailureNeverOffersInstallation() async {
+        let service = service(body: downloadableRelease, prepareUpdate: { _ in
+            throw UpdateInstallationError.checksumMismatch
+        })
+        await service.checkForUpdates(automatically: true)
+        while service.installationState.isBusy { await Task.yield() }
+        guard case .failed(let message) = service.installationState else {
+            Issue.record("Expected verification to reject the download")
+            return
+        }
+        #expect(message == UpdateInstallationError.checksumMismatch.localizedDescription)
+        #expect(service.result == nil)
+        #expect(service.availableRelease != nil)
+        service.performUpdateAction()
+        while service.installationState.isBusy { await Task.yield() }
+        guard case .failed = service.installationState else {
+            Issue.record("A failed retry must never become installable")
+            return
+        }
+    }
+
+    @Test
+    func disablingChecksCancelsAnAutomaticDownload() async {
+        let service = service(body: downloadableRelease, prepareUpdate: { _ in
+            try await Task.sleep(for: .seconds(30))
+            throw UpdateInstallationError.downloadFailed
+        })
+        await service.checkForUpdates(automatically: true)
+        #expect(service.installationState.isBusy)
+        service.setAutomaticChecksEnabled(false)
+        #expect(!service.installationState.isBusy)
+        await Task.yield()
+        guard case .idle = service.installationState else {
+            Issue.record("Cancellation must not leave an error or a ready update")
+            return
+        }
     }
 }

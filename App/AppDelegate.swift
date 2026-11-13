@@ -267,6 +267,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     private func setupUpdateObserver() {
         UpdateService.shared.$availableRelease
+            .map { _ in () }
+            .merge(with: UpdateService.shared.$installationState.map { _ in () })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.presentAutomaticUpdateIfNeeded() }
             .store(in: &cancellables)
@@ -314,21 +316,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     }
 
     @objc func openAvailableUpdate() {
-        guard let release = UpdateService.shared.availableRelease else { return }
-        UpdateService.shared.openReleasePage(for: release)
+        UpdateService.shared.performUpdateAction()
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(checkForUpdates) {
             return !UpdateService.shared.isChecking
         }
+        if menuItem.action == #selector(openAvailableUpdate) {
+            return !UpdateService.shared.installationState.isBusy
+        }
         return true
     }
 
     // 菜单即将显示时，动态更新"暂停/恢复引擎"菜单项的标题和热键提示
     func menuNeedsUpdate(_ menu: NSMenu) {
-        if let release = UpdateService.shared.availableRelease {
-            availableUpdateMenuItem?.title = String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)
+        if UpdateService.shared.availableRelease != nil {
+            availableUpdateMenuItem?.title = UpdateService.shared.updateActionTitle
             availableUpdateMenuItem?.isHidden = false
         } else {
             availableUpdateMenuItem?.isHidden = true

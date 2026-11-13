@@ -45,12 +45,13 @@ struct AboutView: View {
                     Text("Build \(updateService.buildNumber)")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary.opacity(0.7))
-                    if let release = updateService.availableRelease {
-                        Button(String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)) {
-                            updateService.openReleasePage(for: release)
+                    if updateService.availableRelease != nil {
+                        Button(updateService.updateActionTitle) {
+                            updateService.performUpdateAction()
                         }
                         .font(.system(size: 12))
                         .buttonStyle(.link)
+                        .disabled(updateService.installationState.isBusy)
                     }
                 }
             }

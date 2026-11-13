@@ -40,6 +40,7 @@
 		FBA679602F781F3300E6F969 /* ToastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA679612F781F3300E6F969 /* ToastManager.swift */; };
 		FC1100000000000000000002 /* ModifierMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1100000000000000000001 /* ModifierMapping.swift */; };
 		FC1100010000000000000002 /* ModifierRemappingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1100010000000000000001 /* ModifierRemappingState.swift */; };
+		FC1100020000000000000002 /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1100020000000000000001 /* UpdateInstaller.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +78,7 @@
 		FBA679612F781F3300E6F969 /* ToastManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManager.swift; sourceTree = "<group>"; };
 		FC1100000000000000000001 /* ModifierMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModifierMapping.swift; sourceTree = "<group>"; };
 		FC1100010000000000000001 /* ModifierRemappingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModifierRemappingState.swift; sourceTree = "<group>"; };
+		FC1100020000000000000001 /* UpdateInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateInstaller.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				FBA679542F781F2D00E6F969 /* UpdateService.swift */,
+				FC1100020000000000000001 /* UpdateInstaller.swift */,
 				FBA679572F781F2E00E6F969 /* BackupManager.swift */,
 				FBA6795B2F781F3000E6F969 /* MappingStore.swift */,
 				FBA679612F781F3300E6F969 /* ToastManager.swift */,
@@ -298,6 +301,7 @@
 				FBA679422F781F2900E6F969 /* KeyLogic.swift in Sources */,
 				FBA679432F781F2900E6F969 /* MyMap.swift in Sources */,
 				FBA679532F781F2D00E6F969 /* UpdateService.swift in Sources */,
+				FC1100020000000000000002 /* UpdateInstaller.swift in Sources */,
 				FBA679562F781F2E00E6F969 /* BackupManager.swift in Sources */,
 				FBA6795A2F781F3000E6F969 /* MappingStore.swift in Sources */,
 				FBA6795C2F781F3100E6F969 /* ToastStyle.swift in Sources */,

@@ -190,7 +190,7 @@
 "update.available.message" = "最新版本 %@ 已发布，当前版本为 %@";
 "update.latest.title" = "已是最新版本";
 "update.latest.message" = "您正在使用最新版本的 KeyMapper";
-"update.error.title" = "检查更新失败";
+"update.error.title" = "更新失败";
 "update.download" = "下载更新";
 "update.error.invalid.url" = "无效的 URL";
 "update.error.invalid.response" = "无效的响应";
@@ -204,6 +204,25 @@
 "update.error.invalid.version" = "无法识别版本号，请前往发布页面查看最新版本。";
 "update.error.rate.limited" = "GitHub 暂时限制了更新检查请求，请稍后重试，或前往发布页面查看。";
 "update.error.http" = "更新服务器返回错误（HTTP %ld），请稍后重试，或前往发布页面查看。";
+"settings.auto.download" = "自动下载更新";
+"settings.auto.download.desc" = "发现新版本后自动下载并校验，点击“重启并更新”后安装。";
+"update.downloading" = "正在下载更新…";
+"update.downloading.message" = "正在下载并校验更新，可以继续使用 KeyMapper。";
+"update.ready.title" = "更新已准备就绪";
+"update.ready.message" = "版本 %@ 已下载并通过校验。重启后将自动替换当前应用，保留规则和设置。";
+"update.ready.banner" = "更新已准备就绪，重启后安装。规则和设置将保留。";
+"update.available.title.version" = "发现新版本 %@";
+"update.restart" = "重启并更新";
+"update.later" = "稍后";
+"update.installing" = "正在准备重启并安装…";
+"update.install.error.unsupported" = "此版本暂无可校验的自动更新包，请前往发布页面下载。";
+"update.install.error.download" = "更新下载失败，请重试或前往发布页面下载。";
+"update.install.error.checksum" = "更新包不完整或校验失败，未安装。请重新下载。";
+"update.install.error.package" = "更新包内容或版本不正确，未安装。请前往发布页面下载。";
+"update.install.error.signature" = "更新包的应用签名校验失败，未安装。请前往发布页面下载。";
+"update.install.error.system" = "此更新不支持当前 macOS 版本或处理器，请前往发布页面查看。";
+"update.install.error.location" = "无法在当前位置替换应用。请将 KeyMapper 拖入“应用程序”文件夹后重试，或手动安装。";
+"update.install.error.failed" = "自动安装未完成，原版本已保留。请重试或前往发布页面手动安装。";
 
 /* Record Row */
 "waiting.for.input" = "等待输入...";

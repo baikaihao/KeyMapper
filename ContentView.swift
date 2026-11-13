@@ -51,6 +51,9 @@ struct ContentView: View {
             DetailView(selectedTab: selectedTab)
         }
         .navigationSplitViewStyle(.balanced)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            UpdateStatusView()
+        }
         .alert(updateService.result?.title ?? "", isPresented: Binding(
             get: { updateService.result != nil },
             set: { if !$0 { updateService.result = nil } }
@@ -58,9 +61,18 @@ struct ContentView: View {
             switch result {
             case .available(let release):
                 Button(NSLocalizedString("update.download", comment: "")) {
-                    updateService.openReleasePage(for: release)
+                    if release.installableAsset != nil {
+                        updateService.downloadUpdate(release)
+                    } else {
+                        updateService.openReleasePage(for: release)
+                    }
                 }
                 Button(NSLocalizedString("cancel", comment: ""), role: .cancel) {}
+            case .ready:
+                Button(NSLocalizedString("update.restart", comment: "")) {
+                    Task { await updateService.restartAndInstall() }
+                }
+                Button(NSLocalizedString("update.later", comment: ""), role: .cancel) {}
             case .failed, .noReleases:
                 Button(NSLocalizedString("update.view.releases", comment: "")) {
                     updateService.openReleasePage()
@@ -71,6 +83,58 @@ struct ContentView: View {
             }
         } message: { result in
             Text(result.message(currentVersion: updateService.currentVersion))
+        }
+    }
+}
+
+// 所有页面都显示更新进度，关闭提示后仍可随时安装或重试。
+struct UpdateStatusView: View {
+    @ObservedObject var service: UpdateService = .shared
+
+    var body: some View {
+        if service.availableRelease != nil || hasInstallationError {
+            VStack(spacing: 0) {
+                Divider()
+                HStack(spacing: 12) {
+                    if service.installationState.isBusy {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: hasInstallationError ? "exclamationmark.circle" : "arrow.down.circle")
+                            .foregroundStyle(hasInstallationError ? Color.orange : Color.accentColor)
+                    }
+                    Text(statusMessage)
+                        .font(.system(size: 12))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 12)
+                    if !service.installationState.isBusy, service.availableRelease != nil {
+                        Button(service.updateActionTitle) { service.performUpdateAction() }
+                            .controlSize(.small)
+                    }
+                    if hasInstallationError {
+                        Button(NSLocalizedString("update.view.releases", comment: "")) { service.openReleasePage() }
+                            .controlSize(.small)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+    }
+
+    private var hasInstallationError: Bool {
+        if case .failed = service.installationState { return true }
+        return false
+    }
+
+    private var statusMessage: String {
+        switch service.installationState {
+        case .idle:
+            return String(format: NSLocalizedString("update.available.title.version", comment: ""), service.availableRelease?.tagName ?? "")
+        case .downloading: return NSLocalizedString("update.downloading.message", comment: "")
+        case .ready: return NSLocalizedString("update.ready.banner", comment: "")
+        case .installing: return NSLocalizedString("update.installing", comment: "")
+        case .failed(let message): return message
         }
     }
 }

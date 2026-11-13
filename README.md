@@ -41,8 +41,8 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **🔇 Disable Keys**: Choose “Disable Key” in the target key selector, then use the rule's app whitelist to block a key only in selected apps
 - **🎭 Stealth Mode**: Hide Dock icon and enable "Launch at Login" for seamless background operation
 - **🔄 Import/Export**: Backup and restore your mapping rules with JSON files
-- **🔍 Check for Updates**: Automatically checks GitHub after launch, at most once every 24 hours, with a switch in Settings > General (enabled by default). Only new versions trigger a notice; background checks never open the main window. You can also check manually from the app menu, menu bar icon menu, or About page and open the release page to download
-- **🔒 Privacy First**: 100% open-source, no analytics; network access is limited to GitHub update checks, which can be disabled in Settings
+- **🔍 Automatic Updates**: Checks GitHub after launch, at most once every 24 hours, and automatically downloads and verifies new versions. Click **Restart and Update** when ready to replace the app in its current location and relaunch it; rules and settings are preserved. Automatic checks and downloads have separate switches in Settings > General (both enabled by default). Background checks never open the main window. Manual checks and the releases page remain available
+- **🔒 Privacy First**: 100% open-source, no analytics; network access is limited to GitHub update checks and update downloads, both of which can be disabled in Settings
 
 ### 🎡 Radial Wheel
 
@@ -140,8 +140,8 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **🔇 禁用按键**：在目标按键选择器中选择“禁用按键”，配合规则白名单，仅在指定应用中屏蔽按键
 - **🎭 静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求
 - **🔄 导入导出**：支持备份和恢复映射规则
-- **🔍 检查更新**：默认在启动后自动检查 GitHub，每 24 小时最多一次，可在「设置 → 通用设置」中关闭；仅发现新版本时提示，后台检查不会打开主窗口。也可从应用菜单、菜单栏图标菜单或「关于」页面手动检查并前往发布页下载
-- **🔒 完全开源**：不包含统计模块，网络连接仅用于 GitHub 更新检查，可在设置中关闭自动检查，保护输入隐私
+- **🔍 自动更新**：启动后自动检查 GitHub，每 24 小时最多一次，发现新版本后自动下载并校验。点击「重启并更新」后，在原位置替换应用并重新启动，保留规则和设置。「设置 → 通用设置」提供独立的自动检查、自动下载开关，默认均开启。后台检查不会打开主窗口，仍可手动检查或前往发布页下载
+- **🔒 完全开源**：不包含统计模块，网络连接仅用于 GitHub 更新检查和更新包下载，可在设置中关闭自动检查及下载，保护输入隐私
 
 ### 🎡 轮转转盘
 
@@ -231,6 +231,16 @@ This software is provided without any warranty. See [LICENSE](LICENSE) for the c
 KeyMapper 采用 **GNU Affero 通用公共许可证第 3 版（仅此版本）**（`AGPL-3.0-only`）。允许在遵守许可证的前提下使用、修改、分发及商业使用。分发受该许可证覆盖的软件时，须按许可证要求提供对应源码；如果修改版支持通过网络远程交互，须向这些用户显著提供免费获取该修改版对应源码的途径。
 
 本软件不提供任何担保。完整条款见 [LICENSE](LICENSE)。
+
+## Publishing automatic updates / 发布自动更新
+
+Attach a universal ZIP named `KeyMapper.app.zip` (or `KeyMapper.zip`) containing `KeyMapper.app` at the archive root to each GitHub Release. The app version must match the release tag (an optional `v` prefix is supported), and the bundle identifier must remain `bkh.KeyMapper`. Keep the app's code signature intact. The updater verifies GitHub's SHA-256 asset digest, bundle identity, version, supported macOS version and CPU architecture before installation. Developer ID signed installations also require the existing signing identity to match. Packages without a SHA-256 digest fall back to the releases page.
+
+每次发布 GitHub Release 时，上传名为 `KeyMapper.app.zip`（或 `KeyMapper.zip`）的通用 ZIP 包，根目录直接包含 `KeyMapper.app`。应用版本需与 Release 标签一致（允许 `v` 前缀），Bundle ID 保持 `bkh.KeyMapper`，并保留完整应用签名。更新器会校验 GitHub 提供的 SHA-256、应用身份、版本、macOS 和处理器兼容性；Developer ID 签名的安装还会检查签名身份一致。缺少 SHA-256 的附件会退回发布页手动下载。
+
+The installation directory must be writable. Move the app out of a disk image and into Applications before updating. The previous app is kept until the new version launches, and a failed replacement or launch request triggers rollback. Updating only replaces the app bundle; it does not modify rule files or preferences.
+
+应用所在目录需要可写，请先将应用从磁盘映像拖入「应用程序」文件夹。旧应用会保留到新版启动；替换或启动请求失败时尝试回滚。更新只替换应用包，不修改规则文件和偏好设置。
 
 ## 📝 Changelog
 

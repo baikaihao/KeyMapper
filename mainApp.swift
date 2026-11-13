@@ -20,10 +20,11 @@ struct KeyMapperApp: App {
                     appDelegate.checkForUpdates()
                 }
                 .disabled(updateService.isChecking)
-                if let release = updateService.availableRelease {
-                    Button(String(format: NSLocalizedString("update.download.version", comment: ""), release.tagName)) {
-                        updateService.openReleasePage(for: release)
+                if updateService.availableRelease != nil {
+                    Button(updateService.updateActionTitle) {
+                        updateService.performUpdateAction()
                     }
+                    .disabled(updateService.installationState.isBusy)
                 }
             }
             // 移除 "New" 菜单项，KeyMapper 不需要新建文档功能
