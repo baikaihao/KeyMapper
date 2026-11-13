@@ -362,20 +362,21 @@ class MyEngine: ObservableObject {
     }
 
     private func postMappedKeyPairWithModifierBridge(mapping: MyMap, proxy: CGEventTapProxy?) {
+        guard mapping.action == .remap else { return }
         var codes = mapping.outputModifierCodes
         for active in activeSingleMappings.values { codes.formUnion(active.targetModifierCodes) }
         transitionModifiers(to: codes, proxy: proxy)
-        if mapping.targetModifier == nil {
-            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
-            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+        if let code = mapping.outputKeyCode {
+            postMappedKey(code: code, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
+            postMappedKey(code: code, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
         }
         refreshModifierOutput(proxy: proxy)
     }
 
     private func cancelModifierSourceMappings(proxy: CGEventTapProxy? = nil) {
         for (key, active) in Array(activeSingleMappings) where active.mapping.sourceModifier != nil {
-            if active.mapping.targetModifier == nil {
-                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            if let code = active.mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
             }
             activeSingleMappings.removeValue(forKey: key)
         }
@@ -418,7 +419,9 @@ class MyEngine: ObservableObject {
                 sourceModifierCodes: sourceCodes
             )
             refreshModifierOutput(proxy: proxy)
-            postMappedKey(code: mapping.tCode, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
+            if let code = mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: true, proxy: proxy)
+            }
             if let index = list.firstIndex(where: { $0.id == mapping.id }) {
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: .mappingTriggered, object: nil, userInfo: ["index": index])
@@ -518,6 +521,10 @@ class MyEngine: ObservableObject {
         }
         if type == .keyUp && shouldHandleMappedKeyUp(keyCode: code) {
             return handleKeyUp(proxy: proxy, keyCode: code, originalEvent: event)
+        }
+        // 已屏蔽的按住序列必须完整吞掉，暂停也不能漏出自动重复。
+        if type == .keyDown, activeSingleMappings[code]?.mapping.action == .block {
+            return nil
         }
         if pauseHotkeyPressedKeyCode == code {
             if type == .keyUp { pauseHotkeyPressedKeyCode = nil }
@@ -698,8 +705,10 @@ class MyEngine: ObservableObject {
     private func resetInFlightKeyState(restorePhysical: Bool = true) {
         suppressedKeyUps.formUnion(activeSingleMappings.filter { $0.value.mapping.sourceModifier == nil }.keys)
         if let pending = multiMappingState, PhysicalModifierKey.modifier(for: pending.keyCode) == nil { suppressedKeyUps.insert(pending.keyCode) }
-        for activeMapping in activeSingleMappings.values where activeMapping.mapping.targetModifier == nil {
-            postMappedKey(code: activeMapping.mapping.tCode, flags: mappedKeyFlags, keyDown: false)
+        for activeMapping in activeSingleMappings.values {
+            if let code = activeMapping.mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: false)
+            }
         }
         activeSingleMappings.removeAll()
         if tap != nil || eventPoster != nil {
@@ -724,8 +733,8 @@ class MyEngine: ObservableObject {
 
     private func handleKeyDown(proxy: CGEventTapProxy?, keyCode: UInt16, modifiers: UInt64, isAutorepeat: Bool, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if let active = activeSingleMappings[keyCode] {
-            if active.mapping.targetModifier == nil {
-                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
+            if let code = active.mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
             }
             return nil
         }
@@ -774,15 +783,16 @@ class MyEngine: ObservableObject {
             RadialWheelManager.shared.show(mappings: matches, at: mouseLocation)
             return nil
         } else if let m = matches.first {
-            let sourceCodes = ModifierSideTracker.shared.physicalCodes(for: modifiers)
+            // 屏蔽普通键时保留同时按住的修饰键，不影响后续其他输入。
+            let sourceCodes = m.action == .block ? [] : ModifierSideTracker.shared.physicalCodes(for: modifiers)
             activeSingleMappings[keyCode] = ActiveMapping(
                 mapping: m,
                 targetModifierCodes: m.outputModifierCodes,
                 sourceModifierCodes: sourceCodes
             )
             refreshModifierOutput(proxy: proxy)
-            if m.targetModifier == nil {
-                postMappedKey(code: m.tCode, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
+            if let code = m.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: true, isAutorepeat: isAutorepeat, proxy: proxy)
             }
             if let idx = list.firstIndex(where: { $0.id == m.id }) {
                 DispatchQueue.main.async {
@@ -797,8 +807,8 @@ class MyEngine: ObservableObject {
 
     private func handleKeyUp(proxy: CGEventTapProxy?, keyCode: UInt16, originalEvent: CGEvent) -> Unmanaged<CGEvent>? {
         if let activeMapping = activeSingleMappings.removeValue(forKey: keyCode) {
-            if activeMapping.mapping.targetModifier == nil {
-                postMappedKey(code: activeMapping.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            if let code = activeMapping.mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
             }
             refreshModifierOutput(proxy: proxy)
             return nil
@@ -856,8 +866,8 @@ class MyEngine: ObservableObject {
             return current.isOn && isRuleAllowed(current, for: bundleID)
         }
         for (key, active) in Array(activeSingleMappings) where !isAvailable(active.mapping) {
-            if active.mapping.targetModifier == nil {
-                postMappedKey(code: active.mapping.tCode, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
+            if let code = active.mapping.outputKeyCode {
+                postMappedKey(code: code, flags: mappedKeyFlags, keyDown: false, proxy: proxy)
             }
             activeSingleMappings.removeValue(forKey: key)
             if active.mapping.sourceModifier == nil { suppressedKeyUps.insert(key) }

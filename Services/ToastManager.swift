@@ -220,7 +220,7 @@ class ToastManager {
         let mapping = engine.list[index]
         let text = style.assembleText(
             fromName: MyMap.getName(mapping.fCode, mapping.fFlags, mapping.fModifierSides).trimmingCharacters(in: .whitespaces),
-            toName: MyMap.getName(mapping.tCode, mapping.tFlags, mapping.tModifierSides).trimmingCharacters(in: .whitespaces),
+            toName: mapping.targetName.trimmingCharacters(in: .whitespaces),
             note: mapping.note
         )
         guard !text.isEmpty else { return }

@@ -148,7 +148,7 @@ class MappingStore {
 
 extension MappingStore {
     struct Configuration: Codable {
-        static let currentVersion = "4.0"
+        static let currentVersion = "5.0"
 
         let version: String
         let mappings: [MappingRecord]
@@ -209,6 +209,7 @@ extension MappingStore {
         let tCode: UInt16
         let tFlags: UInt64
         let tModifierSides: ModifierSideSelection
+        let action: MappingAction
         let isOn: Bool
         let note: String
         let appBlacklist: [String]
@@ -218,7 +219,7 @@ extension MappingStore {
         let createdAt: Date?
 
         private enum CodingKeys: String, CodingKey {
-            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, appFilterMode, appWhitelist, hasDismissedUsageHint, createdAt
+            case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, action, isOn, note, appBlacklist, appFilterMode, appWhitelist, hasDismissedUsageHint, createdAt
         }
 
         init(from decoder: Decoder) throws {
@@ -230,6 +231,7 @@ extension MappingStore {
             tCode = try container.decode(UInt16.self, forKey: .tCode)
             tFlags = try container.decode(UInt64.self, forKey: .tFlags)
             tModifierSides = try container.decodeIfPresent(ModifierSideSelection.self, forKey: .tModifierSides) ?? .any
+            action = try container.decodeIfPresent(MappingAction.self, forKey: .action) ?? .remap
             isOn = try container.decode(Bool.self, forKey: .isOn)
             note = try container.decode(String.self, forKey: .note)
             appBlacklist = try container.decode([String].self, forKey: .appBlacklist)
@@ -249,6 +251,7 @@ extension MappingStore {
             tCode = mapping.tCode
             tFlags = mapping.tFlags & ModifierKey.allMask
             tModifierSides = mapping.tModifierSides
+            action = mapping.action
             isOn = mapping.isOn
             note = mapping.note
             appBlacklist = mapping.appBlacklist
@@ -380,7 +383,7 @@ extension MappingStore {
             throw ConfigurationError.invalidFormat
         }
 
-        guard ["2.0", "3.0", Configuration.currentVersion].contains(configuration.version) else {
+        guard ["2.0", "3.0", "4.0", Configuration.currentVersion].contains(configuration.version) else {
             throw ConfigurationError.unsupportedVersion(configuration.version)
         }
         guard configuration.mappings.count <= maximumMappingCount else {
@@ -435,6 +438,7 @@ extension MappingStore {
                     tFlags: record.tFlags,
                     fModifierSides: record.fModifierSides,
                     tModifierSides: record.tModifierSides,
+                    action: record.action,
                     isOn: record.isOn,
                     note: record.note,
                     appBlacklist: ruleBlacklist,

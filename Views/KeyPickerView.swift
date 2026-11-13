@@ -81,7 +81,10 @@ struct KeyPickerView: View {
     @Binding var selection: (UInt16, UInt64)?
     // Option/Command 的左右侧选择
     @Binding var modifierSides: ModifierSideSelection
+    @Binding var action: MappingAction
     var allowsModifierOnly = false
+    var allowsBlocking = false
+    @State private var selectedAction: MappingAction = .remap
     // 当前选中的主按键 keyCode
     @State private var selectedKeyCode: UInt16? = nil
     // 当前选中的修饰键列表（动态扩展）
@@ -97,12 +100,16 @@ struct KeyPickerView: View {
         selection: Binding<(UInt16, UInt64)?>,
         modifierSides: Binding<ModifierSideSelection> = .constant(.any),
         allowsModifierOnly: Bool = false,
+        action: Binding<MappingAction> = .constant(.remap),
+        allowsBlocking: Bool = false,
         onDismiss: (() -> Void)? = nil,
         onConfirm: (() -> Void)? = nil
     ) {
         _selection = selection
         _modifierSides = modifierSides
+        _action = action
         self.allowsModifierOnly = allowsModifierOnly
+        self.allowsBlocking = allowsBlocking
         self.onDismiss = onDismiss
         self.onConfirm = onConfirm
     }
@@ -120,6 +127,7 @@ struct KeyPickerView: View {
     }
 
     private var resolvedSelection: (UInt16, UInt64)? {
+        if allowsBlocking && selectedAction == .block { return (0, 0) }
         if let code = selectedKeyCode { return (code, combinedFlags) }
         guard allowsModifierOnly, modifierKeys.count == 1,
               let modifier = modifierKeys.first else { return nil }
@@ -127,6 +135,7 @@ struct KeyPickerView: View {
     }
 
     private var combinationName: String {
+        if allowsBlocking && selectedAction == .block { return NSLocalizedString("rules.block.key", comment: "") }
         guard let (code, flags) = resolvedSelection else { return "" }
         return MyMap.getName(code, flags, modifierSides)
     }
@@ -140,11 +149,26 @@ struct KeyPickerView: View {
                 Spacer()
             }
 
-            // MARK: 修饰键区域
-            modifierSection
+            if allowsBlocking {
+                Picker(NSLocalizedString("keypicker.action", comment: ""), selection: $selectedAction) {
+                    Text(NSLocalizedString("keypicker.action.remap", comment: "")).tag(MappingAction.remap)
+                    Text(NSLocalizedString("rules.block.key", comment: "")).tag(MappingAction.block)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
 
-            Divider()
-            keyGridSection
+            if selectedAction == .block && allowsBlocking {
+                Label(NSLocalizedString("keypicker.block.hint", comment: ""), systemImage: "nosign")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                // MARK: 修饰键区域
+                modifierSection
+                Divider()
+                keyGridSection
+            }
 
             Divider()
 
@@ -153,6 +177,7 @@ struct KeyPickerView: View {
         }
         .padding(16)
         .frame(width: 380)
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             loadSelection()
         }
@@ -307,7 +332,8 @@ struct KeyPickerView: View {
                     }
                 }
             }
-            .frame(maxHeight: 180)
+            // 切回映射模式时必须提供明确高度，避免 popover 沿用缩小后的布局将滚动区压成 0。
+            .frame(height: 180)
         }
     }
 
@@ -411,14 +437,21 @@ struct KeyPickerView: View {
     // 确认选择：将修饰键和主按键组合为 (keyCode, flags) 并写入绑定变量
     private func confirmSelection() {
         guard let value = resolvedSelection else { return }
+        action = allowsBlocking ? selectedAction : .remap
         selection = value
-        if ModifierMapping.modifier(in: value) != nil { modifierSides = .any }
+        if action == .block || ModifierMapping.modifier(in: value) != nil { modifierSides = .any }
         onConfirm?()
     }
 
     // 加载初始状态：从 selection 参数解析当前按键组合
     // 当selection为nil时保持空白状态，确保录制栏为空时选择器也为空
     private func loadSelection() {
+        selectedAction = allowsBlocking ? action : .remap
+        if selectedAction == .block {
+            selectedKeyCode = nil
+            modifierKeys = []
+            return
+        }
         if let sel = selection {
             let (code, flags) = sel
             if allowsModifierOnly, let modifier = ModifierMapping.modifier(in: sel) {

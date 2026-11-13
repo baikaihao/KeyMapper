@@ -355,7 +355,7 @@ struct RadialWheelView: View {
         )
 
         let isSelected = selectedIndex == index
-        let name = MyMap.getName(mappings[index].tCode, mappings[index].tFlags, mappings[index].tModifierSides)
+        let name = mappings[index].targetName
 
         return Text(name.trimmingCharacters(in: .whitespaces))
             .font(.system(size: fontSize, weight: isSelected ? .bold : .medium, design: .rounded))

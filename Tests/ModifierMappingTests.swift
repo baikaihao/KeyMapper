@@ -659,12 +659,12 @@ struct ModifierMappingTests {
     }
 
     @Test
-    func versionFourRoundTripIncludesBothRuleTypes() throws {
+    func currentVersionRoundTripIncludesBothRuleTypes() throws {
         var rules = swap
         rules[0].appBlacklist = ["remote.app"]
         let data = try configurationData(rules: rules)
         let document = try JSONDecoder().decode(MappingStore.Configuration.self, from: data)
-        #expect(document.version == "4.0")
+        #expect(document.version == MappingStore.Configuration.currentVersion)
         let decoded = try MappingStore.decodeAndValidateConfiguration(from: data)
         #expect(decoded.modifierMappings == rules)
         #expect(decoded.mappings.count == MappingStore.defaultMappings().count)

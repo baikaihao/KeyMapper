@@ -248,6 +248,10 @@
 "keypicker.no.selection" = "未选择按键";
 "keypicker.confirm" = "确认";
 "keypicker.cancel" = "取消";
+"rules.block.key" = "禁用按键";
+"keypicker.action" = "目标操作";
+"keypicker.action.remap" = "映射按键";
+"keypicker.block.hint" = "拦截原始按键，不发送替代按键。保存后可通过应用白名单，限定只在指定应用中生效。";
 "rules.pick.key" = "可视化选择按键";
 
 /* Launch at Login Error */

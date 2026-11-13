@@ -8,7 +8,7 @@ trap 'rm -rf "$test_dir"' EXIT
 mkdir -p "$test_dir/Sources" "$test_dir/Tests"
 cp "$repo_dir/Engine/MyEngine.swift" "$repo_dir/Views/RadialWheel.swift" "$repo_dir/Views/KeyLogic.swift" "$repo_dir/Models/MyMap.swift" "$repo_dir/Models/ModifierMapping.swift" \
    "$repo_dir/Engine/ModifierRemappingState.swift" "$repo_dir/Services/MappingStore.swift" "$repo_dir/Services/UpdateService.swift" "$repo_dir/Services/BackupManager.swift" "$test_dir/Sources/"
-cp "$repo_dir/Tests/ModifierMappingTests.swift" "$repo_dir/Tests/EventPassthroughTests.swift" "$repo_dir/Tests/UpdateServiceTests.swift" "$repo_dir/Tests/BackupManagerTests.swift" "$test_dir/Tests/"
+cp "$repo_dir/Tests/ModifierMappingTests.swift" "$repo_dir/Tests/EventPassthroughTests.swift" "$repo_dir/Tests/KeyBlockingTests.swift" "$repo_dir/Tests/UpdateServiceTests.swift" "$repo_dir/Tests/BackupManagerTests.swift" "$test_dir/Tests/"
 cat > "$test_dir/Package.swift" <<'SWIFT'
 // swift-tools-version: 6.2
 import PackageDescription

@@ -186,6 +186,11 @@ enum ApplicationFilter {
     }
 }
 
+enum MappingAction: String, Codable {
+    case remap
+    case block
+}
+
 struct MyMap: Identifiable, Codable {
     var id = UUID()
     // 源按键 keyCode（macOS 虚拟键码）
@@ -200,6 +205,7 @@ struct MyMap: Identifiable, Codable {
     var tFlags: UInt64
     // 目标按键 Option/Command 的物理侧别
     var tModifierSides: ModifierSideSelection
+    var action: MappingAction = .remap
     // 是否启用该映射规则
     var isOn: Bool = true
     // 用户备注
@@ -224,12 +230,17 @@ struct MyMap: Identifiable, Codable {
     }
 
     var sourceModifier: ModifierKey? { ModifierMapping.modifier(in: (fCode, fFlags)) }
-    var targetModifier: ModifierKey? { ModifierMapping.modifier(in: (tCode, tFlags)) }
+    var targetModifier: ModifierKey? { action == .remap ? ModifierMapping.modifier(in: (tCode, tFlags)) : nil }
+    var outputKeyCode: UInt16? { action == .remap && targetModifier == nil ? tCode : nil }
+    var targetName: String {
+        action == .block ? NSLocalizedString("rules.block.key", comment: "") : Self.getName(tCode, tFlags, tModifierSides)
+    }
     var showsUsageHint: Bool {
-        (sourceModifier != nil) != (targetModifier != nil) && !hasDismissedUsageHint
+        action == .remap && (sourceModifier != nil) != (targetModifier != nil) && !hasDismissedUsageHint
     }
 
     var outputModifierCodes: Set<UInt16> {
+        guard action == .remap else { return [] }
         if targetModifier != nil { return [tCode] }
         return Set(ModifierKey.allCases.filter { (tFlags & $0.flagValue) != 0 }.map {
             PhysicalModifierKey.keyCode(for: $0, side: tModifierSides.side(for: $0))
@@ -237,11 +248,11 @@ struct MyMap: Identifiable, Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, isOn, note, appBlacklist, appFilterMode, appWhitelist, hasDismissedUsageHint, createdAt
+        case id, fCode, fFlags, fModifierSides, tCode, tFlags, tModifierSides, action, isOn, note, appBlacklist, appFilterMode, appWhitelist, hasDismissedUsageHint, createdAt
     }
 
     // 完整初始化器，支持指定所有属性
-    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, isOn: Bool = true, note: String = "", appBlacklist: [String] = [], appFilterMode: AppFilterMode = .blacklist, appWhitelist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
+    init(id: UUID = UUID(), fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, action: MappingAction = .remap, isOn: Bool = true, note: String = "", appBlacklist: [String] = [], appFilterMode: AppFilterMode = .blacklist, appWhitelist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
         self.id = id
         self.fCode = fCode
         self.fFlags = fFlags
@@ -249,6 +260,7 @@ struct MyMap: Identifiable, Codable {
         self.tCode = tCode
         self.tFlags = tFlags
         self.tModifierSides = tModifierSides
+        self.action = action
         self.isOn = isOn
         self.note = note
         self.appBlacklist = appBlacklist
@@ -259,13 +271,14 @@ struct MyMap: Identifiable, Codable {
     }
 
     // 便捷初始化器，用于新增映射时自动生成 id，默认启用
-    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, note: String = "", appBlacklist: [String] = [], appFilterMode: AppFilterMode = .blacklist, appWhitelist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
+    init(fCode: UInt16, fFlags: UInt64, tCode: UInt16, tFlags: UInt64, fModifierSides: ModifierSideSelection = .any, tModifierSides: ModifierSideSelection = .any, action: MappingAction = .remap, note: String = "", appBlacklist: [String] = [], appFilterMode: AppFilterMode = .blacklist, appWhitelist: [String] = [], hasDismissedUsageHint: Bool = false, createdAt: Date? = Date()) {
         self.fCode = fCode
         self.fFlags = fFlags
         self.fModifierSides = fModifierSides
         self.tCode = tCode
         self.tFlags = tFlags
         self.tModifierSides = tModifierSides
+        self.action = action
         self.note = note
         self.appBlacklist = appBlacklist
         self.appFilterMode = appFilterMode
@@ -284,6 +297,7 @@ struct MyMap: Identifiable, Codable {
         tCode = try container.decode(UInt16.self, forKey: .tCode)
         tFlags = try container.decode(UInt64.self, forKey: .tFlags)
         tModifierSides = try container.decodeIfPresent(ModifierSideSelection.self, forKey: .tModifierSides) ?? .any
+        action = try container.decodeIfPresent(MappingAction.self, forKey: .action) ?? .remap
         isOn = try container.decodeIfPresent(Bool.self, forKey: .isOn) ?? true
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         appBlacklist = try container.decodeIfPresent([String].self, forKey: .appBlacklist) ?? []

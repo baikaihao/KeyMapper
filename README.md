@@ -38,6 +38,7 @@ KeyMapper is a lightweight macOS app designed for Windows users who struggle wit
 - **⏯️ Pause Hotkey**: Global hotkey (default: `⇧⌘Z`) to instantly pause/resume the engine
 - **📊 Status Feedback**: Status bar icon dims when engine is paused for visual feedback
 - **🚫 App Blacklist**: Disable key mapping in specific applications (e.g., Terminal)
+- **🔇 Disable Keys**: Choose “Disable Key” in the target key selector, then use the rule's app whitelist to block a key only in selected apps
 - **🎭 Stealth Mode**: Hide Dock icon and enable "Launch at Login" for seamless background operation
 - **🔄 Import/Export**: Backup and restore your mapping rules with JSON files
 - **🔍 Check for Updates**: Automatically checks GitHub after launch, at most once every 24 hours, with a switch in Settings > General (enabled by default). Only new versions trigger a notice; background checks never open the main window. You can also check manually from the app menu, menu bar icon menu, or About page and open the release page to download
@@ -106,7 +107,9 @@ Shortcut rules take priority and match the original physical keys. Other keyboar
 
 Expand a rule to manage its **Blacklist** on the left and **Whitelist** on the right. Select a column heading to activate either blacklist or whitelist mode. Only the selected mode applies; both app lists are saved. An empty whitelist disables the rule. Adding an app activates its column. The global blacklist still takes priority. Click either keycap to edit it directly; click the card background to expand or collapse details.
 
-Exports and backups use format 4.0, including per-rule application scopes and modifier rules. Formats 2.0 and 3.0 can still be imported with their existing blacklist behavior; importing format 2.0 without modifier rules clears modifier rules. Older app versions cannot import format 4.0. Test the full press/hold/release sequence with your remote desktop client before relying on it.
+To block a key only in XMind, record the source key, open the target key selector using its keyboard button, select **Disable Key**, confirm and save. Expand the rule and add XMind to its **Whitelist**. The key works normally in other apps. The blacklist excludes an app from the rule; it does not block the key.
+
+Exports and backups use format 5.0, including key blocking actions, per-rule application scopes and modifier rules. Formats 2.0, 3.0 and 4.0 can still be imported with their existing behavior; importing format 2.0 without modifier rules clears modifier rules. Older app versions cannot import format 5.0. Test the full press/hold/release sequence with your remote desktop client before relying on it.
 
 ### 🛠 Technical Details
 
@@ -134,6 +137,7 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 - **⏯️ 暂停快捷键**：全局快捷键（默认：`⇧⌘Z`）快速暂停/恢复引擎
 - **📊 状态反馈**：引擎暂停时状态栏图标变淡，直观显示当前状态
 - **🚫 应用黑名单**：在特定应用中禁用按键映射（如终端）
+- **🔇 禁用按键**：在目标按键选择器中选择“禁用按键”，配合规则白名单，仅在指定应用中屏蔽按键
 - **🎭 静默运行**：支持隐藏 Dock 图标、开机自启动，满足无感化后台运行需求
 - **🔄 导入导出**：支持备份和恢复映射规则
 - **🔍 检查更新**：默认在启动后自动检查 GitHub，每 24 小时最多一次，可在「设置 → 通用设置」中关闭；仅发现新版本时提示，后台检查不会打开主窗口。也可从应用菜单、菜单栏图标菜单或「关于」页面手动检查并前往发布页下载
@@ -202,7 +206,9 @@ KeyMapper 是一款专为 Windows 用户设计的轻量级 macOS 按键映射工
 
 展开规则后，左侧管理 **黑名单**，右侧管理 **白名单**，点击栏标题选择黑名单或白名单模式，只有所选模式生效，两份应用列表都会保留。白名单为空时规则不生效；添加应用会启用对应栏。全局黑名单仍然优先。直接点击键帽即可编辑按键，点击卡片背景可展开或收起详情。
 
-导出与备份使用 4.0 格式，包含单条规则的应用生效范围和修饰键规则；仍可导入 2.0、3.0 格式并保留原有黑名单行为。导入不含修饰键规则的 2.0 格式会清空修饰键规则。旧版应用无法导入 4.0 格式。远程桌面请先在实际客户端验证按下、持续按住和松开的完整行为。
+如需仅在 XMind 中屏蔽某个按键，先录入来源按键，点击目标栏的键盘按钮，选择 **禁用按键** 并确认保存；展开该规则，在 **白名单** 中添加 XMind。其他应用中的按键保持正常。黑名单表示不执行这条规则，不表示屏蔽按键。
+
+导出与备份使用 5.0 格式，包含禁用按键操作、单条规则的应用生效范围和修饰键规则；仍可导入 2.0、3.0、4.0 格式并保留原有行为。导入不含修饰键规则的 2.0 格式会清空修饰键规则。旧版应用无法导入 5.0 格式。远程桌面请先在实际客户端验证按下、持续按住和松开的完整行为。
 
 ### 🛠 技术细节
 
